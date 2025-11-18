@@ -92,9 +92,3 @@ db.sqlite3
 output/
 generated/
 temp/
-*.mp4
-*.mp3
-*.wav
-*.png
-*.jpg
-*.jpeg
