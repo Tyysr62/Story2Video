@@ -1,0 +1,143 @@
+import React, { useState } from "react";
+import {
+  HashRouter as Router,
+  Routes,
+  Route,
+  Link,
+  useLocation,
+  Outlet,
+} from "react-router-dom";
+import {
+  GluestackUIProvider,
+  Box,
+  VStack,
+  HStack,
+  Text,
+  Icon,
+  Heading,
+} from "@story2video/ui";
+import { Home, Layers, Library, Video } from "lucide-react";
+import Create from "./pages/Create";
+import Storyboard from "./pages/Storyboard";
+import ShotDetail from "./pages/ShotDetail";
+import Assets from "./pages/Assets";
+import Preview from "./pages/Preview";
+import "@story2video/ui/global.css";
+
+const SidebarItem = ({
+  to,
+  icon: IconComp,
+  label,
+}: {
+  to: string;
+  icon: any;
+  label: string;
+}) => {
+  const location = useLocation();
+
+  // Determine if the item is active.
+  // Special case for Storyboard to be active when viewing a shot details page
+  const isActive =
+    location.pathname === to ||
+    (to === "/storyboard" && location.pathname.startsWith("/shot"));
+
+  return (
+    <Link to={to} style={{ textDecoration: "none" }}>
+      <HStack
+        bg={isActive ? "$backgroundLight100" : "transparent"}
+        p="$3"
+        borderRadius="$md"
+        mb="$2"
+        alignItems="center"
+      >
+        <Icon
+          as={IconComp}
+          size="md"
+          color={isActive ? "$primary500" : "$textLight500"}
+        />
+        <Text
+          ml="$3"
+          fontWeight={isActive ? "$bold" : "$normal"}
+          color={isActive ? "$textLight900" : "$textLight700"}
+        >
+          {label}
+        </Text>
+      </HStack>
+    </Link>
+  );
+};
+
+const Layout = () => {
+  return (
+    <HStack flex={1} h="100vh" overflow="hidden">
+      {/* Sidebar */}
+      <Box
+        w={250}
+        bg="$backgroundLight50"
+        borderRightWidth={1}
+        borderColor="$borderLight200"
+        p="$4"
+      >
+        <VStack space="lg">
+          <HStack alignItems="center" space="sm" px="$2" mb="$4">
+            <Box
+              w="$8"
+              h="$8"
+              bg="$primary500"
+              borderRadius="$md"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Text color="white" fontWeight="bold">
+                S2V
+              </Text>
+            </Box>
+            <Heading size="md">Story2Video</Heading>
+          </HStack>
+
+          <VStack>
+            <Text
+              size="xs"
+              fontWeight="$bold"
+              color="$textLight400"
+              mb="$2"
+              px="$2"
+            >
+              MENU
+            </Text>
+            <SidebarItem to="/" icon={Home} label="Create Story" />
+            <SidebarItem to="/storyboard" icon={Layers} label="Storyboard" />
+            <SidebarItem to="/assets" icon={Library} label="Assets Library" />
+          </VStack>
+        </VStack>
+      </Box>
+
+      {/* Main Content */}
+      <Box flex={1} bg="$backgroundLight0">
+        <Outlet />
+      </Box>
+    </HStack>
+  );
+};
+
+function App() {
+  const [mode] = useState<"light" | "dark">("light");
+
+  return (
+    <GluestackUIProvider mode={mode}>
+      <Router>
+        <Routes>
+          <Route element={<Layout />}>
+            <Route path="/" element={<Create />} />
+            <Route path="/storyboard" element={<Storyboard />} />
+            <Route path="/shot/:id" element={<ShotDetail />} />
+            <Route path="/assets" element={<Assets />} />
+            <Route path="/preview" element={<Preview />} />
+          </Route>
+        </Routes>
+      </Router>
+    </GluestackUIProvider>
+  );
+}
+
+export default App;

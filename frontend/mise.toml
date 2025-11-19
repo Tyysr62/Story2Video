@@ -1,0 +1,14 @@
+# mise.toml
+[tools]
+node = "22"
+pnpm = "9"
+java = "temurin-17"
+rust = "latest"
+
+[env]
+WEBKIT_DISABLE_DMABUF_RENDERER = 1
+QT_QPA_PLATFORM = "xcb"
+
+[settings]
+# 启用实验性特性以支持更激进的版本解析策略
+experimental = true
