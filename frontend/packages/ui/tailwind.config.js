@@ -47,7 +47,7 @@ const gluestackPlugin = plugin(({ matchVariant }) => {
         const right = statePriority[z.value] ?? Number.MAX_SAFE_INTEGER;
         return left - right;
       },
-    }
+    },
   );
 });
 
@@ -60,6 +60,24 @@ module.exports = {
   theme: {
     extend: {
       // 这里可以扩展自定义的主题 Token
+      borderRadius: {
+        "4xl": "2rem",
+        "5xl": "2.5rem",
+      },
+      animation: {
+        "fade-in": "fadeIn 0.5s ease-in-out",
+        "slide-up": "slideUp 0.5s ease-out",
+      },
+      keyframes: {
+        fadeIn: {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
+        slideUp: {
+          "0%": { transform: "translateY(20px)", opacity: "0" },
+          "100%": { transform: "translateY(0)", opacity: "1" },
+        },
+      },
     },
   },
 };
