@@ -113,7 +113,7 @@ const Layout = () => {
       </Box>
 
       {/* Main Content */}
-      <Box flex={1} bg="$backgroundLight0">
+      <Box flex={1} bg="$backgroundLight0" className="animate-fade-in">
         <Outlet />
       </Box>
     </HStack>

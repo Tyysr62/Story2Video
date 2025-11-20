@@ -64,7 +64,9 @@ const Create = () => {
           return (
             <Toast action="error" variant="accent" nativeID={id}>
               <ToastTitle>Error</ToastTitle>
-              <ToastDescription>Generation failed. Please try again.</ToastDescription>
+              <ToastDescription>
+                Generation failed. Please try again.
+              </ToastDescription>
             </Toast>
           );
         },
@@ -75,8 +77,19 @@ const Create = () => {
   };
 
   return (
-    <Box flex={1} p="$8" bg="$backgroundLight0" justifyContent="center" alignItems="center">
-      <VStack space="xl" width="100%" maxWidth={600}>
+    <Box
+      flex={1}
+      p="$8"
+      bg="$backgroundLight0"
+      justifyContent="center"
+      alignItems="center"
+    >
+      <VStack
+        space="xl"
+        width="100%"
+        maxWidth={600}
+        className="animate-fade-in"
+      >
         <VStack space="xs">
           <Heading size="2xl">Create New Story</Heading>
           <Text size="sm" color="$textLight500">
@@ -86,7 +99,7 @@ const Create = () => {
 
         <VStack space="md">
           <Text fontWeight="$bold">Story Text</Text>
-          <Textarea size="xl" h={200}>
+          <Textarea size="xl" h={200} className="rounded-2xl">
             <TextareaInput
               placeholder="Once upon a time..."
               value={storyText}
@@ -98,7 +111,7 @@ const Create = () => {
         <VStack space="md">
           <Text fontWeight="$bold">Style</Text>
           <Select selectedValue={style} onValueChange={setStyle}>
-            <SelectTrigger variant="outline" size="md">
+            <SelectTrigger variant="outline" size="md" className="rounded-xl">
               <SelectInput placeholder="Select option" />
               <SelectIcon mr="$3">
                 <Icon as={ChevronDownIcon} />
@@ -124,9 +137,12 @@ const Create = () => {
           action="primary"
           isDisabled={loading}
           onPress={handleGenerate}
+          className="rounded-full"
         >
           {loading && <Spinner color="$white" mr="$2" />}
-          <ButtonText>{loading ? "Generating..." : "Generate Story"}</ButtonText>
+          <ButtonText>
+            {loading ? "Generating..." : "Generate Story"}
+          </ButtonText>
         </Button>
       </VStack>
     </Box>
