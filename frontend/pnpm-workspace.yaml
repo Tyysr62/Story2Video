@@ -1,0 +1,3 @@
+packages:
+  - "apps/*" # 存放应用程序（Mobile, Desktop）
+  - "packages/*" # 存放共享库（UI, Core, Config）

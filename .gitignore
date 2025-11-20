@@ -50,6 +50,7 @@ Desktop.ini
 # IDE 配置 (VS Code / PyCharm)
 .idea/
 .vscode/
+.turbo/
 *.swp
 *.swo
 
