@@ -93,3 +93,9 @@ db.sqlite3
 output/
 generated/
 temp/
+
+# go 后端
+.cursor/
+*.pdf
+*.env
+

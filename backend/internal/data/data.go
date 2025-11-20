@@ -1,0 +1,103 @@
+package data
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/panjf2000/ants/v2"
+	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+
+	"story2video-backend/internal/conf"
+	"story2video-backend/internal/model"
+)
+
+type Data struct {
+	DB    *gorm.DB
+	Redis *redis.Client
+	Pool  *ants.Pool
+}
+
+func NewData(ctx context.Context, cfg *conf.Config, log *zap.Logger) (*Data, func(), error) {
+	db, err := newDB(cfg.Database, log)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := db.AutoMigrate(&model.Story{}); err != nil {
+		return nil, nil, fmt.Errorf("auto migrate: %w", err)
+	}
+
+	rdb, err := newRedis(cfg.Redis)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	pool, err := ants.NewPool(cfg.Pool.Size, ants.WithExpiryDuration(time.Duration(cfg.Pool.ExpirySeconds)*time.Second))
+	if err != nil {
+		return nil, nil, fmt.Errorf("init ants: %w", err)
+	}
+
+	cleanup := func() {
+		sqlDB, _ := db.DB()
+		if sqlDB != nil {
+			_ = sqlDB.Close()
+		}
+		pool.Release()
+		if err := rdb.Close(); err != nil {
+			log.Warn("close redis", zap.Error(err))
+		}
+	}
+
+	return &Data{
+		DB:    db,
+		Redis: rdb,
+		Pool:  pool,
+	}, cleanup, nil
+}
+
+func newDB(cfg conf.Database, log *zap.Logger) (*gorm.DB, error) {
+	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.Name, cfg.SSLMode)
+	gormLogger := logger.New(
+		zap.NewStdLog(log),
+		logger.Config{
+			SlowThreshold:             time.Second,
+			LogLevel:                  logger.Info,
+			IgnoreRecordNotFoundError: true,
+			Colorful:                  false,
+		},
+	)
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		Logger: gormLogger,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("open postgres: %w", err)
+	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, fmt.Errorf("get sql db: %w", err)
+	}
+	sqlDB.SetMaxOpenConns(cfg.MaxOpenConns)
+	sqlDB.SetMaxIdleConns(cfg.MaxIdleConns)
+	sqlDB.SetConnMaxLifetime(time.Duration(cfg.ConnMaxLifetime) * time.Second)
+	return db, nil
+}
+
+func newRedis(cfg conf.Redis) (*redis.Client, error) {
+	rdb := redis.NewClient(&redis.Options{
+		Addr:         fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
+		Password:     cfg.Password,
+		DB:           cfg.DB,
+		PoolSize:     cfg.PoolSize,
+		MinIdleConns: cfg.MinIdleConns,
+	})
+	if err := rdb.Ping(context.Background()).Err(); err != nil {
+		return nil, fmt.Errorf("ping redis: %w", err)
+	}
+	return rdb, nil
+}

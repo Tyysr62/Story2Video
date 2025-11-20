@@ -1,0 +1,33 @@
+server:
+  port: 8080
+  mode: "debug"
+  read_timeout: 60
+  write_timeout: 60
+
+database:
+  host: "localhost"
+  port: 5432
+  user: "user"
+  password: "password"
+  name: "story2video"
+  ssl_mode: "disable"
+  max_open_conns: 20
+  max_idle_conns: 10
+  conn_max_lifetime: 3600
+
+redis:
+  host: "localhost"
+  port: 6379
+  password: ""
+  db: 0
+  pool_size: 10
+  min_idle_conns: 5
+
+jwt:
+  secret: "change-me"
+  expire_hours: 24
+
+pool:
+  size: 1000
+  expiry_seconds: 60
+
