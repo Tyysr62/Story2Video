@@ -243,12 +243,13 @@ async def generate_storyboard_images(storyboard: StoryboardJSON):
             # 4. 保存到分镜目录
             img_path = save_storyboard_image(image_base64)
 
-            # 5. 记录结果
+            # 5. 记录结果（增加image_base64字段返回给前端）
             result_list.append({
                 "shot_id": shot_id,
                 "shot_type": shot.shot_type,
                 "used_prompt": positive_prompt,
                 "image_path": img_path,
+                "image_base64": image_base64,  # 新增：将base64传给前端
                 "camera_move": shot.camera_move,
                 "bgm": shot.bgm
             })
