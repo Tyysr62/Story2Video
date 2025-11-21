@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>分镜生成工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">AI分镜自动生成工具</h1>
+            <p class="text-gray-600">输入主题和风格，一键生成专业分镜图片</p>
+        </header>
+
+        <!-- 输入表单 -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <div class="mb-4">
+                <label for="video_topic" class="block text-gray-700 font-medium mb-2">视频主题</label>
+                <input type="text" id="video_topic" 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                       placeholder="例如：太空探险纪录片" required>
+            </div>
+            <div class="mb-6">
+                <label for="style" class="block text-gray-700 font-medium mb-2">电影风格</label>
+                <input type="text" id="style" 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                       placeholder="例如：科幻风格，暗色调，高对比度" required>
+            </div>
+            <button id="generateBtn" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition duration-300 flex items-center justify-center">
+                <i class="fa fa-magic mr-2"></i> 生成分镜
+            </button>
+        </div>
+
+        <!-- 加载状态 -->
+        <div id="loading" class="hidden text-center py-10">
+            <i class="fa fa-circle-o-notch fa-spin text-4xl text-blue-500 mb-4"></i>
+            <p class="text-gray-600">正在生成分镜，请稍候...</p>
+        </div>
+
+        <!-- 结果展示 -->
+        <div id="result" class="hidden">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">生成结果</h2>
+            <div id="storyboardGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- 分镜图片将动态插入这里 -->
+            </div>
+        </div>
+
+        <!-- 错误提示 -->
+        <div id="error" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6"></div>
+    </div>
+
+    <script>
+        // 仅调用Qwen的API（8002端口），无需调用SDXL的API
+        const API_URL = "http://localhost:8002/generate_storyboard";
+
+        // DOM元素
+        const generateBtn = document.getElementById('generateBtn');
+        const videoTopicInput = document.getElementById('video_topic');
+        const styleInput = document.getElementById('style');
+        const loading = document.getElementById('loading');
+        const result = document.getElementById('result');
+        const storyboardGrid = document.getElementById('storyboardGrid');
+        const error = document.getElementById('error');
+
+        // 生成按钮点击事件
+        generateBtn.addEventListener('click', async () => {
+            const videoTopic = videoTopicInput.value.trim();
+            const style = styleInput.value.trim();
+
+            if (!videoTopic || !style) {
+                showError("请输入视频主题和风格");
+                return;
+            }
+
+            resetUI();
+            showLoading();
+
+            try {
+                // 前端仅调用Qwen的API
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    // 传递用户输入的提示词和风格给Qwen服务
+                    body: JSON.stringify({ video_topic: videoTopic, style: style }),
+                    timeout: 300000
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                // Qwen的响应中包含了SDXL的结果（含base64）
+                if (data.code === 200 && data.sdxl_result && data.sdxl_result.data) {
+                    displayStoryboard(data.sdxl_result.data); // 直接使用SDXL的base64数据
+                    showResult();
+                } else {
+                    throw new Error(data.message || "生成失败，请重试");
+                }
+            } catch (err) {
+                showError(`生成失败: ${err.message}`);
+            } finally {
+                hideLoading();
+            }
+        });
+
+        // 展示分镜图片：解析base64并渲染
+        function displayStoryboard(shots) {
+            storyboardGrid.innerHTML = '';
+            
+            shots.forEach(shot => {
+                // 从分镜数据中获取SDXL返回的base64
+                const imageBase64 = shot.image_base64;
+                // 拼接base64的dataURL格式，供img标签解析
+                const imageSrc = imageBase64.startsWith('data:image') 
+                    ? imageBase64 
+                    : `data:image/png;base64,${imageBase64}`;
+
+                // 创建分镜卡片
+                const card = document.createElement('div');
+                card.className = "bg-white rounded-xl shadow-md overflow-hidden";
+                card.innerHTML = `
+                    <div class="relative">
+                        <img src="${imageSrc}" alt="分镜 ${shot.shot_id}" 
+                             class="w-full h-64 object-cover"
+                             onerror="this.src='https://picsum.photos/400/300?grayscale&blur=2'; this.alt='图片加载失败'">
+                        <div class="absolute top-2 right-2 bg-blue-600 text-white text-sm px-2 py-1 rounded">
+                            镜头 ${shot.shot_id}
+                        </div>
+                    </div>
+                    <div class="p-4">
+                        <h3 class="font-semibold text-gray-800 mb-1">${shot.shot_type || '未定义镜头类型'}</h3>
+                        <p class="text-gray-600 text-sm mb-2">${shot.content || '无描述'}</p>
+                        <div class="flex justify-between text-xs text-gray-500">
+                            <span>时长: ${shot.duration || '未定义'}秒</span>
+                            <span>镜头运动: ${shot.camera_move || '未定义'}</span>
+                        </div>
+                    </div>
+                `;
+                storyboardGrid.appendChild(card);
+            });
+        }
+
+        // UI辅助函数（无修改）
+        function resetUI() {
+            error.classList.add('hidden');
+            result.classList.add('hidden');
+            storyboardGrid.innerHTML = '';
+        }
+        function showLoading() { loading.classList.remove('hidden'); }
+        function hideLoading() { loading.classList.add('hidden'); }
+        function showResult() { result.classList.remove('hidden'); }
+        function showError(message) {
+            error.textContent = message;
+            error.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
