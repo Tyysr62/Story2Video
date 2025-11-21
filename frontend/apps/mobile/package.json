@@ -9,7 +9,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "eas-build-pre-install": "corepack enable && corepack prepare pnpm@8.15.8 --activate && cd ../../ && pnpm install -w --frozen-lockfile"
+    "eas-build-pre-install": "corepack enable && corepack prepare pnpm@9.12.0 --activate && cd ../../ && pnpm install -w --frozen-lockfile"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
