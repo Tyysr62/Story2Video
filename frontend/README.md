@@ -167,3 +167,41 @@ pnpm --filter @story2video/core add lodash
 
 ### 样式规范
 我们使用 **Tailwind CSS** (Web/Desktop) 和 **NativeWind** (Mobile)。尽量使用原子类（utility classes）来编写样式，以保持 UI 包的统一性。
+
+---
+
+## 📦 EAS 构建指南（Expo in Monorepo）
+
+
+### 1) 触发构建（在 apps/mobile 目录）
+
+初始化与登录（首次）：
+```bash
+eas login
+eas init
+```
+
+常用构建命令：
+- 开发客户端（Dev Client，内部分发）：
+  ```bash
+  eas build -p ios --profile development
+  eas build -p android --profile development
+  ```
+- 内测分发（Preview）：
+  ```bash
+  eas build -p ios --profile preview
+  eas build -p android --profile preview
+  ```
+- 生产发布（Production）：
+  ```bash
+  eas build -p ios --profile production
+  eas build -p android --profile production
+  ```
+
+### 2) Secrets 与环境变量
+
+- 注入密钥/环境变量（如 API_KEY）：
+  ```bash
+  eas secret:create --name API_KEY --value "xxxxx"
+  ```
+- 也可在 `eas.json` 的 `env` 中配置非敏感变量。敏感信息优先使用 `eas secret`。
