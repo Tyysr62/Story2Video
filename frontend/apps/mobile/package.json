@@ -8,7 +8,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "eas-build-pre-install": "corepack enable && corepack prepare pnpm@8.15.8 --activate && cd ../../ && pnpm install -w --frozen-lockfile"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -33,7 +34,7 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
-    "react-native-svg": "^15.15.0",
+    "react-native-svg": "^15.12.1",
     "react-native-svg-transformer": "^1.5.0",
     "react-native-gesture-handler": "~2.28.0",
     "react-native-reanimated": "~4.1.1",
