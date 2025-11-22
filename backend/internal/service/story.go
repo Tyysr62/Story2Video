@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 
 	"story2video-backend/internal/data"
@@ -23,11 +24,11 @@ func NewStoryService(d *data.Data, logger *zap.Logger) *StoryService {
 	}
 }
 
-func (s *StoryService) Create(ctx context.Context, title, content string) (*model.Story, error) {
-	story := &model.Story{
-		Title:   title,
-		Content: content,
-	}
+func (s *StoryService) Create(ctx context.Context, storyID, userID uuid.UUID, content, title, style string, duration int) (*model.Story, error) {
+	story := model.NewStory(storyID, userID, content)
+	story.Title = title
+	story.Style = style
+	story.Duration = duration
 	if err := s.data.DB.WithContext(ctx).Create(story).Error; err != nil {
 		return nil, fmt.Errorf("create story: %w", err)
 	}
@@ -35,9 +36,12 @@ func (s *StoryService) Create(ctx context.Context, title, content string) (*mode
 	return story, nil
 }
 
-func (s *StoryService) List(ctx context.Context) ([]model.Story, error) {
+func (s *StoryService) List(ctx context.Context, userID uuid.UUID) ([]model.Story, error) {
 	var stories []model.Story
-	if err := s.data.DB.WithContext(ctx).Order("created_at desc").Find(&stories).Error; err != nil {
+	if err := s.data.DB.WithContext(ctx).
+		Where("user_id = ?", userID).
+		Order("created_at desc").
+		Find(&stories).Error; err != nil {
 		return nil, fmt.Errorf("list stories: %w", err)
 	}
 	return stories, nil
