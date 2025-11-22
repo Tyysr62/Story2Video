@@ -27,7 +27,7 @@ func NewData(ctx context.Context, cfg *conf.Config, log *zap.Logger) (*Data, fun
 	if err != nil {
 		return nil, nil, err
 	}
-	if err := db.AutoMigrate(&model.Story{}); err != nil {
+	if err := db.AutoMigrate(&model.Story{}, &model.Shot{}, &model.Operation{}); err != nil {
 		return nil, nil, fmt.Errorf("auto migrate: %w", err)
 	}
 
