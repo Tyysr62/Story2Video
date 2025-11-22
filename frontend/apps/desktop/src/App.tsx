@@ -69,7 +69,7 @@ const SidebarItem = ({
 
 const Layout = () => {
   return (
-    <HStack flex={1} h="100vh" overflow="hidden">
+    <HStack flex={1} h="$full" overflow="hidden">
       {/* Sidebar */}
       <Box
         w={250}

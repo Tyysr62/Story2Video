@@ -39,11 +39,19 @@ const ShotDetail = () => {
   const toast = useToast();
 
   // State for form fields
-  const [prompt, setPrompt] = useState("A cinematic shot of a hero standing on a cliff...");
-  const [narration, setNarration] = useState("The journey was long and treacherous.");
+  const [prompt, setPrompt] = useState(
+    "A cinematic shot of a hero standing on a cliff...",
+  );
+  const [narration, setNarration] = useState(
+    "The journey was long and treacherous.",
+  );
   const [transition, setTransition] = useState("ken_burns");
-  const [status, setStatus] = useState<"Not Started" | "Generating" | "Generated">("Generated");
-  const [imageUrl, setImageUrl] = useState(`https://placehold.co/800x450/png?text=Shot+${id || "1"}`);
+  const [status, setStatus] = useState<
+    "Not Started" | "Generating" | "Generated"
+  >("Generated");
+  const [imageUrl, setImageUrl] = useState(
+    `https://placehold.co/800x450/png?text=Shot+${id || "1"}`,
+  );
 
   const handleGenerateImage = async () => {
     setStatus("Generating");
@@ -52,7 +60,9 @@ const ShotDetail = () => {
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // Update image to show change (adding timestamp to bypass cache if it were real, here just mock)
-      setImageUrl(`https://placehold.co/800x450/png?text=New+Shot+${id}+${Date.now()}`);
+      setImageUrl(
+        `https://placehold.co/800x450/png?text=New+Shot+${id}+${Date.now()}`,
+      );
       setStatus("Generated");
 
       toast.show({
@@ -61,7 +71,9 @@ const ShotDetail = () => {
           return (
             <Toast action="success" variant="accent" nativeID={id}>
               <ToastTitle>Success</ToastTitle>
-              <ToastDescription>Image regenerated successfully.</ToastDescription>
+              <ToastDescription>
+                Image regenerated successfully.
+              </ToastDescription>
             </Toast>
           );
         },
@@ -93,11 +105,7 @@ const ShotDetail = () => {
         borderColor="$borderLight200"
         mb="$4"
       >
-        <Button
-          variant="link"
-          onPress={() => navigate("/storyboard")}
-          p="$0"
-        >
+        <Button variant="link" onPress={() => navigate("/storyboard")} p="$0">
           <Icon as={ArrowLeftIcon} mr="$2" />
           <ButtonText color="$textLight800">Back to Storyboard</ButtonText>
         </Button>
@@ -118,7 +126,7 @@ const ShotDetail = () => {
         <Box w={100} />
       </HStack>
 
-      <HStack flex={1} space="xl" flexDirection={{ base: 'column', md: 'row' }}>
+      <HStack flex={1} space="xl" flexDirection={{ base: "column", md: "row" }}>
         {/* Left Column: Image Preview */}
         <VStack flex={1} space="md">
           <Box
@@ -132,19 +140,28 @@ const ShotDetail = () => {
             borderColor="$borderLight200"
             maxHeight={400}
           >
-             <Image
-                source={{ uri: imageUrl }}
-                alt="Shot Preview"
+            <Image
+              source={{ uri: imageUrl }}
+              alt="Shot Preview"
+              w="100%"
+              h="100%"
+              resizeMode="contain"
+            />
+            {status === "Generating" && (
+              <Box
+                position="absolute"
+                bg="rgba(0,0,0,0.5)"
                 w="100%"
                 h="100%"
-                resizeMode="contain"
-             />
-             {status === "Generating" && (
-                <Box position="absolute" bg="rgba(0,0,0,0.5)" w="100%" h="100%" justifyContent="center" alignItems="center">
-                    <Spinner size="large" color="$white" />
-                    <Text color="$white" mt="$2">Generating...</Text>
-                </Box>
-             )}
+                justifyContent="center"
+                alignItems="center"
+              >
+                <Spinner size="large" color="$white" />
+                <Text color="$white" mt="$2">
+                  Generating...
+                </Text>
+              </Box>
+            )}
           </Box>
           <Button
             action="primary"
@@ -152,12 +169,22 @@ const ShotDetail = () => {
             onPress={handleGenerateImage}
             isDisabled={status === "Generating"}
           >
-            <ButtonText>{status === "Generating" ? "Processing..." : "Generate Image"}</ButtonText>
+            <ButtonText>
+              {status === "Generating" ? "Processing..." : "Generate Image"}
+            </ButtonText>
           </Button>
         </VStack>
 
         {/* Right Column: Controls */}
-        <VStack flex={1} space="lg" bg="$white" p="$6" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200">
+        <VStack
+          flex={1}
+          space="lg"
+          bg="$white"
+          p="$6"
+          borderRadius="$lg"
+          borderWidth={1}
+          borderColor="$borderLight200"
+        >
           <VStack space="sm">
             <Text fontWeight="$bold">Prompt</Text>
             <Textarea size="md" w="100%">
@@ -167,29 +194,31 @@ const ShotDetail = () => {
                 onChangeText={setPrompt}
               />
             </Textarea>
-            <Text size="xs" color="$textLight400">Modify the prompt to regenerate the image.</Text>
+            <Text size="xs" color="$textLight400">
+              Modify the prompt to regenerate the image.
+            </Text>
           </VStack>
 
           <VStack space="sm">
             <Text fontWeight="$bold">Transition Effect</Text>
             <Select selectedValue={transition} onValueChange={setTransition}>
-                <SelectTrigger variant="outline" size="md">
+              <SelectTrigger variant="outline" size="md">
                 <SelectInput placeholder="Select effect" />
                 <SelectIcon mr="$3">
-                    <Icon as={ChevronDownIcon} />
+                  <Icon as={ChevronDownIcon} />
                 </SelectIcon>
-                </SelectTrigger>
-                <SelectPortal>
+              </SelectTrigger>
+              <SelectPortal>
                 <SelectBackdrop />
                 <SelectContent>
-                    <SelectDragIndicatorWrapper>
+                  <SelectDragIndicatorWrapper>
                     <SelectDragIndicator />
-                    </SelectDragIndicatorWrapper>
-                    <SelectItem label="Ken Burns" value="ken_burns" />
-                    <SelectItem label="Crossfade" value="crossfade" />
-                    <SelectItem label="Volume Mix" value="volume_mix" />
+                  </SelectDragIndicatorWrapper>
+                  <SelectItem label="Ken Burns" value="ken_burns" />
+                  <SelectItem label="Crossfade" value="crossfade" />
+                  <SelectItem label="Volume Mix" value="volume_mix" />
                 </SelectContent>
-                </SelectPortal>
+              </SelectPortal>
             </Select>
           </VStack>
 

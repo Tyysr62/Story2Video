@@ -21,7 +21,15 @@
     "noFallthroughCasesInSwitch": true,
     "paths": {
       "@story2video/ui": ["../../packages/ui/index"],
-      "@story2video/ui/*": ["../../packages/ui/*"]
+      "@story2video/ui/*": ["../../packages/ui/*"],
+      "@story2video/core": ["../../packages/core/src/index"],
+      "@story2video/core/*": ["../../packages/core/src/*"],
+      "@story2video/core/axios": [
+        "../../packages/core/src/api/clients/axios-client.ts"
+      ],
+      "@story2video/core/tauri": [
+        "../../packages/core/src/api/clients/tauri-client.ts"
+      ]
     }
   },
   "include": ["src"],

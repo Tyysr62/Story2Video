@@ -13,6 +13,7 @@
     "@story2video/core": "workspace:^",
     "@story2video/ui": "workspace:^",
     "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-http": "^2.5.4",
     "@tauri-apps/plugin-opener": "^2",
     "lucide-react": "^0.554.0",
     "react": "^19.1.0",
