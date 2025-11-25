@@ -44,9 +44,18 @@ type GRPC struct {
 	DialTimeout int    `mapstructure:"dial_timeout"`
 }
 
+type OSS struct {
+	Endpoint        string `mapstructure:"endpoint"`
+	AccessKeyID     string `mapstructure:"access_key_id"`
+	AccessKeySecret string `mapstructure:"access_key_secret"`
+	Bucket          string `mapstructure:"bucket"`
+	CallbackURL     string `mapstructure:"callback_url"`
+}
+
 type Kafka struct {
 	Brokers []string `mapstructure:"brokers"`
 	Topic   string   `mapstructure:"topic"`
+	Group   string   `mapstructure:"group"`
 }
 
 type Config struct {
@@ -55,6 +64,7 @@ type Config struct {
 	Redis    Redis    `mapstructure:"redis"`
 	Pool     Pool     `mapstructure:"pool"`
 	GRPC     GRPC     `mapstructure:"grpc"`
+	OSS      OSS      `mapstructure:"oss"`
 	Kafka    Kafka    `mapstructure:"kafka"`
 }
 

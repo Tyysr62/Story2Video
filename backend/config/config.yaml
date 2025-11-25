@@ -31,8 +31,16 @@ grpc:
   addr: "localhost:9002"
   dial_timeout: 5
 
+oss:
+  endpoint: "https://oss-cn-hangzhou.aliyuncs.com"
+  access_key_id: ""
+  access_key_secret: ""
+  bucket: "story2video"
+  callback_url: ""
+
 kafka:
   brokers:
     - "localhost:9092"
   topic: "story.jobs.create"
+  group: "story-worker"
 

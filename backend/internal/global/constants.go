@@ -23,12 +23,14 @@ const (
 )
 
 const (
-	OpLLM        = "llm"
-	OpT2I        = "t2i"
-	OpTTS        = "tts"
-	OpCompose    = "compose"
-	OpRetry      = "retry"
-	OpStoryboard = "story_create"
+	OpLLM         = "llm"
+	OpT2I         = "t2i"
+	OpTTS         = "tts"
+	OpCompose     = "compose"
+	OpRetry       = "retry"
+	OpStoryboard  = "story_create"
+	OpShotRegen   = "shot_regen"
+	OpVideoRender = "video_render"
 )
 
 const (

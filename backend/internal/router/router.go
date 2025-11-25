@@ -19,14 +19,28 @@ func NewRouter(cfg *conf.Config, log *zap.Logger, d *data.Data) *gin.Engine {
 	r.Use(middleware.Logger(log))
 	r.Use(middleware.CORS())
 
-	api := r.Group("/api")
+	api := r.Group("/v1")
+	api.Use(middleware.User())
 
 	homeService := service.NewHomeService(cfg, d, log)
 	storyService := service.NewStoryService(d, log)
+	shotService := service.NewShotService(cfg, d, log)
+
 	storyHandler := handler.NewStoryHandler(homeService, storyService)
+	shotHandler := handler.NewShotHandler(shotService)
+	opHandler := handler.NewOperationHandler(d)
 
 	api.GET("/stories", storyHandler.List)
 	api.POST("/stories", storyHandler.Create)
+	api.GET("/stories/:storyID/shots", shotHandler.List)
+	api.GET("/stories/:storyID/shots/:shotID", shotHandler.Get)
+	api.PATCH("/stories/:storyID/shots/:shotID", shotHandler.Update)
+	api.POST("/stories/:storyID/shots/:shotID/regenerate", shotHandler.Regenerate)
+	api.POST("/stories/:storyID/shots/:shotID:regenerate", shotHandler.Regenerate)
+	api.POST("/stories/:storyID/compile", shotHandler.Render)
+	api.POST("/stories/:storyID:compile", shotHandler.Render)
+
+	api.GET("/operations/:operationID", opHandler.Get)
 
 	return r
 }
