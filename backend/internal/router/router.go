@@ -20,10 +20,10 @@ func NewRouter(cfg *conf.Config, log *zap.Logger, d *data.Data) *gin.Engine {
 	r.Use(middleware.CORS())
 
 	api := r.Group("/api")
-	api.Use(middleware.Auth(cfg.JWT.Secret))
 
+	homeService := service.NewHomeService(cfg, d, log)
 	storyService := service.NewStoryService(d, log)
-	storyHandler := handler.NewStoryHandler(storyService)
+	storyHandler := handler.NewStoryHandler(homeService, storyService)
 
 	api.GET("/stories", storyHandler.List)
 	api.POST("/stories", storyHandler.Create)

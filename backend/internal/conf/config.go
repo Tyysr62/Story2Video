@@ -34,22 +34,28 @@ type Redis struct {
 	MinIdleConns int    `mapstructure:"min_idle_conns"`
 }
 
-type JWT struct {
-	Secret      string `mapstructure:"secret"`
-	ExpireHours int    `mapstructure:"expire_hours"`
-}
-
 type Pool struct {
 	Size          int `mapstructure:"size"`
 	ExpirySeconds int `mapstructure:"expiry_seconds"`
+}
+
+type GRPC struct {
+	Addr        string `mapstructure:"addr"`
+	DialTimeout int    `mapstructure:"dial_timeout"`
+}
+
+type Kafka struct {
+	Brokers []string `mapstructure:"brokers"`
+	Topic   string   `mapstructure:"topic"`
 }
 
 type Config struct {
 	Server   Server   `mapstructure:"server"`
 	Database Database `mapstructure:"database"`
 	Redis    Redis    `mapstructure:"redis"`
-	JWT      JWT      `mapstructure:"jwt"`
 	Pool     Pool     `mapstructure:"pool"`
+	GRPC     GRPC     `mapstructure:"grpc"`
+	Kafka    Kafka    `mapstructure:"kafka"`
 }
 
 func Load(path string) (*Config, error) {

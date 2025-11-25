@@ -13,19 +13,21 @@ import (
 var validate = validator.New()
 
 type StoryHandler struct {
-	service *service.StoryService
+	home  *service.HomeService
+	story *service.StoryService
 }
 
-func NewStoryHandler(service *service.StoryService) *StoryHandler {
-	return &StoryHandler{service: service}
+func NewStoryHandler(home *service.HomeService, story *service.StoryService) *StoryHandler {
+	return &StoryHandler{
+		home:  home,
+		story: story,
+	}
 }
 
 type createStoryRequest struct {
-	ID       string `json:"id" binding:"required"`
-	Content  string `json:"content" binding:"required"`
-	Title    string `json:"title"`
-	Style    string `json:"style"`
-	Duration int    `json:"duration"`
+	DisplayName   string `json:"display_name" binding:"required"`
+	ScriptContent string `json:"script_content" binding:"required"`
+	Style         string `json:"style" binding:"required"`
 }
 
 func (h *StoryHandler) Create(c *gin.Context) {
@@ -45,27 +47,21 @@ func (h *StoryHandler) Create(c *gin.Context) {
 		return
 	}
 
-	storyID, err := uuid.Parse(req.ID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
-		return
-	}
-
-	story, err := h.service.Create(
+	result, err := h.home.Create(
 		c.Request.Context(),
-		storyID,
 		userID,
-		req.Content,
-		req.Title,
-		req.Style,
-		req.Duration,
+		service.CreateHomeParams{
+			DisplayName:   req.DisplayName,
+			ScriptContent: req.ScriptContent,
+			Style:         req.Style,
+		},
 	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, story)
+	c.JSON(http.StatusAccepted, result)
 }
 
 func (h *StoryHandler) List(c *gin.Context) {
@@ -75,7 +71,7 @@ func (h *StoryHandler) List(c *gin.Context) {
 		return
 	}
 
-	stories, err := h.service.List(c.Request.Context(), userID)
+	stories, err := h.story.List(c.Request.Context(), userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

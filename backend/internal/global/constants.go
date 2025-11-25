@@ -23,15 +23,27 @@ const (
 )
 
 const (
-	OpLLM     = "llm"
-	OpT2I     = "t2i"
-	OpTTS     = "tts"
-	OpCompose = "compose"
-	OpRetry   = "retry"
+	OpLLM        = "llm"
+	OpT2I        = "t2i"
+	OpTTS        = "tts"
+	OpCompose    = "compose"
+	OpRetry      = "retry"
+	OpStoryboard = "story_create"
 )
 
 const (
 	TransNone      = "none"
 	TransKenBurns  = "ken_burns"
 	TransCrossfade = "crossfade"
+)
+
+const (
+	StyleMovie     = "movie"
+	StyleAnimation = "animation"
+	StyleRealistic = "realistic"
+)
+
+const (
+	VoiceMale   = "male"
+	VoiceFemale = "female"
 )
