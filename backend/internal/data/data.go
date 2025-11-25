@@ -14,12 +14,14 @@ import (
 
 	"story2video-backend/internal/conf"
 	"story2video-backend/internal/model"
+	"story2video-backend/internal/rpc/modelclient"
 )
 
 type Data struct {
 	DB    *gorm.DB
 	Redis *redis.Client
 	Pool  *ants.Pool
+	RPC   *modelclient.Client
 }
 
 func NewData(ctx context.Context, cfg *conf.Config, log *zap.Logger) (*Data, func(), error) {
@@ -41,6 +43,11 @@ func NewData(ctx context.Context, cfg *conf.Config, log *zap.Logger) (*Data, fun
 		return nil, nil, fmt.Errorf("init ants: %w", err)
 	}
 
+	rpcClient, rpcCleanup, err := modelclient.New(cfg.GRPC)
+	if err != nil {
+		return nil, nil, fmt.Errorf("init grpc client: %w", err)
+	}
+
 	cleanup := func() {
 		sqlDB, _ := db.DB()
 		if sqlDB != nil {
@@ -50,12 +57,16 @@ func NewData(ctx context.Context, cfg *conf.Config, log *zap.Logger) (*Data, fun
 		if err := rdb.Close(); err != nil {
 			log.Warn("close redis", zap.Error(err))
 		}
+		if rpcCleanup != nil {
+			rpcCleanup()
+		}
 	}
 
 	return &Data{
 		DB:    db,
 		Redis: rdb,
 		Pool:  pool,
+		RPC:   rpcClient,
 	}, cleanup, nil
 }
 

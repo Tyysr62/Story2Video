@@ -9,16 +9,17 @@ import (
 type Shot struct {
 	BaseModel
 	StoryID     uuid.UUID `gorm:"type:uuid;not null;index" json:"story_id"`
-	Number      int       `json:"number"`
+	Sequence    string    `gorm:"type:varchar(64);index" json:"sequence"`
 	Title       string    `gorm:"type:varchar(255)" json:"title"`
 	Description string    `gorm:"type:text" json:"description"`
-	Script      string    `gorm:"type:text" json:"script"`
+	Details     string    `gorm:"type:text" json:"details"`
 	Narration   string    `gorm:"type:text" json:"narration"`
+	Type        string    `gorm:"type:text" json:"type"`
 	Transition  string    `gorm:"type:varchar(32);not null;default:'none'" json:"transition"`
+	Voice       string    `gorm:"type:varchar(8)" json:"voice"`
 	Status      string    `gorm:"type:varchar(16);not null;default:'pending'" json:"status"`
 	ImageURL    string    `gorm:"type:varchar(512)" json:"image_url"`
-	AudioURL    string    `gorm:"type:varchar(512)" json:"audio_url"`
-	ClipURL     string    `gorm:"type:varchar(512)" json:"clip_url"`
+	BGM         string    `gorm:"type:varchar(255)" json:"bgm"`
 }
 
 func NewShot(id, userID, storyID uuid.UUID) *Shot {

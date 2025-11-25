@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package storyboard.v1;
+
+option go_package = "story2video-backend/internal/rpc/modelpb;modelpb";
+
+message ShotResult {
+  string shot_id = 1;
+  string sequence = 2;
+  string title = 3;
+  string description = 4;
+  string script = 5;
+  string details = 6;
+  string narration = 7;
+  string type = 8;
+  string transition = 9;
+  string voice = 10;
+  string image_url = 11;
+  string bgm = 12;
+  bytes image_data = 13;
+}
+
+message CreateStoryboardTaskRequest {
+  string operation_id = 1;
+  string story_id = 2;
+  string user_id = 3;
+  string display_name = 4;
+  string script_content = 5;
+  string style = 6;
+}
+
+message StoryboardReply {
+  repeated ShotResult shots = 1;
+}
+
+message RegenerateShotRequest {
+  string operation_id = 1;
+  string story_id = 2;
+  string shot_id = 3;
+  string details = 4;
+  string style = 5;
+  string user_id = 6;
+}
+
+message RegenerateShotReply {
+  ShotResult shot = 1;
+}
+
+message RenderVideoRequest {
+  string operation_id = 1;
+  string story_id = 2;
+  string user_id = 3;
+}
+
+message RenderVideoReply {
+  string video_url = 1;
+  bytes video_data = 2;
+}
+
+service StoryboardService {
+  rpc CreateStoryboardTask(CreateStoryboardTaskRequest) returns (StoryboardReply);
+  rpc RegenerateShot(RegenerateShotRequest) returns (RegenerateShotReply);
+  rpc RenderVideo(RenderVideoRequest) returns (RenderVideoReply);
+}
+
