@@ -21,7 +21,7 @@ app.add_middleware(
 
 # Ollama服务配置（Qwen模型部署地址）
 OLLAMA_API_URL = "http://localhost:11434/api/generate"  # Ollama默认API地址
-OLLAMA_MODEL = "qwen:7b"  # 部署的Qwen模型名称
+OLLAMA_MODEL = "qwen3:8b"  # 部署的Qwen模型名称
 
 # SDXL服务接口地址（接收英文分镜JSON）
 SDXL_API_URL = "http://localhost:8001/generate_storyboard_images"
@@ -69,7 +69,7 @@ def translate_with_qwen(text: str) -> str:
                 "stream": False,
                 "format": "json"
             },
-            timeout=30
+            timeout=300
         )
         response.raise_for_status()
         result = response.json()
@@ -82,54 +82,61 @@ def translate_with_qwen(text: str) -> str:
         raise RuntimeError(f"Qwen翻译失败: {str(e)}")
 
 def build_storyboard_prompt(english_topic: str, english_style: str) -> str:
-    """构建生成英文分镜脚本的提示词（让模型自主决定分镜数量）"""
+    """构建生成英文分镜脚本的提示词（输出shots字段，严格控制5-8个镜头）"""
     example_json = {
         "video_topic": "Mountain Adventure Documentary",
         "style": "Exploration film, natural lighting, vibrant colors",
-        "shot_list": [
+        "shots": [
             {
-                "shot_id": 1,
-                "shot_type": "Aerial shot",
-                "content": "Dramatic mountain range at sunrise, clouds floating between peaks",
-                "duration": 6,
-                "camera_move": "Slow downward pan",
-                "bgm": "Soft orchestral music with nature sounds"
+                "sequence": 1,
+                "title": "Sunrise over peaks",
+                "description": "Aerial view of mountain range during sunrise",
+                "details": "Golden light, clouds between peaks, crisp air, expansive vista",
+                "narration": "At dawn, the mountains awaken to golden light.",
+                "type": "Aerial shot",
+                "transition": "fade in",
+                "voice": "warm, calming, documentary tone",
+                "bgm": "soft orchestral, nature ambience"
             },
             {
-                "shot_id": 2,
-                "shot_type": "Medium shot",
-                "content": "Hiker with backpack walking along a narrow trail",
-                "duration": 5,
-                "camera_move": "Follow shot",
-                "bgm": "Light acoustic guitar"
+                "sequence": 2,
+                "title": "Trail journey",
+                "description": "Hiker walks along a narrow ridge trail",
+                "details": "backpack, wind across grass, distant peaks, steady pace",
+                "narration": "The path demands patience and grit.",
+                "type": "Medium shot",
+                "transition": "cut",
+                "voice": "confident, steady",
+                "bgm": "light acoustic guitar"
             }
         ]
     }
-    
+
     return f"""You are a professional storyboard designer. Create a storyboard script based on the following requirements.
 
 REQUIREMENTS:
 - Video topic: {english_topic}
 - Film style: {english_style}
-- Number of shots: Decide合理的数量 based on the content (typically 5-15 shots, ensure logical flow)
+- Number of shots: Strictly between 5 and 8
 
-OUTPUT FORMAT (MANDATORY):
-Only return a valid JSON object with these fields:
-1. "video_topic": English title of the video
-2. "style": English description of the film style
-3. "shot_list": Array of shot objects (数量由你决定), each containing:
-   - "shot_id": Sequential integer (starting from 1)
-   - "shot_type": Camera shot type (e.g., wide shot, close-up)
-   - "content": Detailed English description of the scene
-   - "duration": Seconds per shot (integer, 3-10)
-   - "camera_move": Camera movement (e.g., pan left, static)
-   - "bgm": Background music style (e.g., upbeat pop, ambient)
+Output a valid JSON object with exactly these keys:
+- "video_topic": English title of the video
+- "style": English description of the film style
+- "shots": Array with 5-8 objects. Each object MUST include:
+  - "sequence": sequential integer starting at 1
+  - "title": short scene title
+  - "description": 1-2 sentence scene description
+  - "details": concrete visual elements for image generation
+  - "narration": voice-over line for this shot
+  - "type": camera shot type (e.g., wide, medium, close-up, aerial)
+  - "transition": transition to next shot (e.g., cut, fade in/out)
+  - "voice": speaking voice style (e.g., warm, confident)
+  - "bgm": background music style
 
-EXAMPLE JSON STRUCTURE (仅展示格式，数量可变):
-{json.dumps(example_json, indent=2)}
+Return ONLY the JSON object. No explanations. Ensure all content is in English.
 
-IMPORTANT: No explanations, only the JSON object. Ensure all content is in English.
-Ensure the number of shots is reasonable for the topic (not too few or too many)."""
+EXAMPLE FORMAT:
+{json.dumps(example_json, indent=2)}"""
 
 def call_ollama(prompt: str) -> str:
     """通用Ollama调用函数"""
@@ -142,7 +149,7 @@ def call_ollama(prompt: str) -> str:
                 "stream": False,
                 "format": "json"
             },
-            timeout=60
+            timeout=600
         )
         response.raise_for_status()
         return response.json().get("response", "")
@@ -186,29 +193,137 @@ async def generate_storyboard(request: GenerateRequest):
         
         # 4. 解析并验证JSON
         storyboard_data = json.loads(qwen_response)
-        required_keys = ["video_topic", "style", "shot_list"]
+        required_keys = ["video_topic", "style", "shots"]
         if not all(key in storyboard_data for key in required_keys):
             raise ValueError("分镜JSON结构不完整")
         
         # 5. 验证分镜列表不为空
-        if not storyboard_data["shot_list"]:
+        if not storyboard_data["shots"]:
             raise ValueError("分镜列表不能为空")
         
-        # 6. 发送到SDXL服务
-        sdxl_result = send_to_sdxl(storyboard_data)
+        # 6. 验证分镜数量在5-8个之间
+        shot_count = len(storyboard_data["shots"])
+        if shot_count < 5 or shot_count > 8:
+            raise ValueError(f"分镜数量必须在5-8个之间，当前：{shot_count}")
+        shots = storyboard_data.get("shots", [])
+
+        def normalize_shots(items: list) -> list:
+            normalized = []
+            for shot in items:
+                seq = shot.get("sequence")
+                shot["sequence"] = int(seq) if seq is not None else 0
+                for k in ["title", "description", "details", "narration", "type", "transition", "voice", "bgm"]:
+                    v = shot.get(k, "")
+                    shot[k] = str(v) if v is not None else ""
+                normalized.append(shot)
+            return normalized
+
+        shots = normalize_shots(shots)
+
+        sdxl_payload = {
+            "video_topic": english_topic,
+            "style": english_style,
+            "shot_list": [
+                {
+                    "shot_id": s["sequence"],
+                    "shot_type": s["type"],
+                    "content": s["details"] or s["description"],
+                    "duration": 5,
+                    "camera_move": "Static",
+                    "bgm": s["bgm"]
+                }
+                for s in shots
+            ]
+        }
+
+        sdxl_result = send_to_sdxl(sdxl_payload)
+
+        image_map = {item.get("shot_id"): item.get("image_path") for item in sdxl_result.get("data", [])}
+
+        final_shots = []
+        for s in shots:
+            pid = s["sequence"]
+            final_shots.append({
+                "sequence": s["sequence"],
+                "title": s["title"],
+                "description": s["description"],
+                "details": s["details"],
+                "narration": s["narration"],
+                "type": s["type"],
+                "transition": s["transition"],
+                "voice": s["voice"],
+                "bgm": s["bgm"],
+                "image_data": image_map.get(pid, "")
+            })
         
         return {
             "code": 200,
-            "message": "分镜生成及图片渲染成功",
-            "translated_topic": english_topic,
-            "translated_style": english_style,
-            "storyboard_json": storyboard_data,
-            "shot_count": len(storyboard_data["shot_list"]),  # 返回实际分镜数量
-            "sdxl_result": sdxl_result
+            "message": "ok",
+            "video_topic": english_topic,
+            "style": english_style,
+            "shots": final_shots
         }
     
     except json.JSONDecodeError:
-        raise HTTPException(status_code=500, detail="Qwen生成的内容不是有效JSON")
+        # 返回错误结构而不是抛出异常
+        error_msg = "Qwen生成的内容不是有效JSON"
+        return {
+            "code": 500,
+            "message": error_msg,
+            "storyboard_json": {
+                "video_topic": request.video_topic,
+                "style": request.style,
+                "shot_list": [
+                    {
+                        "shot_id": 1,
+                        "shot_type": "远景",
+                        "content": f"分镜生成失败: {error_msg}",
+                        "duration": 5,
+                        "camera_move": "静态",
+                        "bgm": "无"
+                    },
+                    {
+                        "shot_id": 2,
+                        "shot_type": "中景",
+                        "content": "错误处理场景",
+                        "duration": 4,
+                        "camera_move": "静态",
+                        "bgm": "无"
+                    }
+                ]
+            },
+            "_error": error_msg
+        }
+    except Exception as e:
+        # 返回错误结构而不是抛出异常
+        error_msg = str(e)
+        return {
+            "code": 500,
+            "message": error_msg,
+            "storyboard_json": {
+                "video_topic": request.video_topic,
+                "style": request.style,
+                "shot_list": [
+                    {
+                        "shot_id": 1,
+                        "shot_type": "远景",
+                        "content": f"分镜生成失败: {error_msg}",
+                        "duration": 5,
+                        "camera_move": "静态",
+                        "bgm": "无"
+                    },
+                    {
+                        "shot_id": 2,
+                        "shot_type": "中景",
+                        "content": "错误处理场景",
+                        "duration": 4,
+                        "camera_move": "静态",
+                        "bgm": "无"
+                    }
+                ]
+            },
+            "_error": error_msg
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
