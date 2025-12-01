@@ -36,9 +36,7 @@ func NewRouter(cfg *conf.Config, log *zap.Logger, d *data.Data) *gin.Engine {
 	api.GET("/stories/:storyID/shots/:shotID", shotHandler.Get)
 	api.PATCH("/stories/:storyID/shots/:shotID", shotHandler.Update)
 	api.POST("/stories/:storyID/shots/:shotID/regenerate", shotHandler.Regenerate)
-	api.POST("/stories/:storyID/shots/:shotID:regenerate", shotHandler.Regenerate)
 	api.POST("/stories/:storyID/compile", shotHandler.Render)
-	api.POST("/stories/:storyID:compile", shotHandler.Render)
 
 	api.GET("/operations/:operationID", opHandler.Get)
 

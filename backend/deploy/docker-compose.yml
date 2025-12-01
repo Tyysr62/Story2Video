@@ -1,4 +1,3 @@
-version: "3.8"
 
 services:
   postgres:
@@ -12,6 +11,7 @@ services:
       - "5432:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
+      - ./init_db.sql:/docker-entrypoint-initdb.d/init_db.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U user"]
       interval: 10s
@@ -31,6 +31,64 @@ services:
       timeout: 3s
       retries: 5
 
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: s2v_kafka
+    restart: unless-stopped
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      - KAFKA_NODE_ID=1
+      - KAFKA_PROCESS_ROLES=broker,controller
+      - KAFKA_LISTENERS=PLAINTEXT://:9092,PLAINTEXT_HOST://:29092,CONTROLLER://:9093
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
+      - KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1
+      - KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
+      - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0
+      - KAFKA_NUM_PARTITIONS=3
+      - KAFKA_LOG_DIRS=/var/lib/kafka/data
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+
+  grpc:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        MAIN_PACKAGE: ./cmd/rpcserver
+    container_name: s2v_grpc
+    environment:
+      - SERVER_MODE=release
+      - GRPC_ADDR=0.0.0.0:9002
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_USER=user
+      - DATABASE_PASSWORD=password
+      - DATABASE_NAME=story2video
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - KAFKA_BROKERS=kafka:9092
+      - KAFKA_TOPIC=story.jobs.create
+      - KAFKA_GROUP=story-worker
+      - KAFKA_PARTITIONS=3
+      - KAFKA_REPLICATION_FACTOR=1
+      - KAFKA_AUTO_CREATE_TOPIC=true
+      - MODEL_SERVICE_BASE_URL=http://8.141.6.15:12345
+      - MODEL_SERVICE_TIMEOUT=300
+    depends_on:
+      - postgres
+      - redis
+      - kafka
+    ports:
+      - "9002:9002"
+
 volumes:
   pg_data:
   redis_data:
+  kafka_data:

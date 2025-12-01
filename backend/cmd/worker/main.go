@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -28,7 +27,6 @@ import (
 type worker struct {
 	data       *data.Data
 	client     modelpb.StoryboardServiceClient
-	storage    service.Storage
 	logger     *zap.Logger
 	reader     *kafka.Reader
 	workerName string
@@ -43,7 +41,7 @@ func main() {
 		panic(fmt.Errorf("load config: %w", err))
 	}
 
-	log, err := pkgLogger.New(cfg.Server.Mode)
+	log, err := pkgLogger.NewWithFile(cfg.Server.Mode, "logs/worker-error.log")
 	if err != nil {
 		panic(fmt.Errorf("init logger: %w", err))
 	}
@@ -61,14 +59,12 @@ func main() {
 	}
 	defer closeConn()
 
-	storage := service.NewStorage(cfg.OSS, log)
 	reader := newKafkaReader(cfg)
 	defer reader.Close()
 
 	w := &worker{
 		data:       dataLayer,
 		client:     modelpb.NewStoryboardServiceClient(modelConn.Conn()),
-		storage:    storage,
 		logger:     log,
 		reader:     reader,
 		workerName: "story-worker",
@@ -189,13 +185,6 @@ func (w *worker) handleRender(ctx context.Context, job service.StoryJobMessage) 
 		"status":    global.StoryReady,
 		"video_url": resp.VideoUrl,
 	}
-	if len(resp.VideoData) > 0 {
-		objectKey := fmt.Sprintf("%s/output.mp4", job.StoryID)
-		url, uploadErr := w.storage.Upload(ctx, objectKey, bytes.NewReader(resp.VideoData))
-		if uploadErr == nil {
-			update["video_url"] = url
-		}
-	}
 	return w.data.DB.WithContext(ctx).
 		Model(&model.Story{}).
 		Where("id = ?", storyID).
@@ -203,15 +192,25 @@ func (w *worker) handleRender(ctx context.Context, job service.StoryJobMessage) 
 }
 
 func (w *worker) persistShots(ctx context.Context, job service.StoryJobMessage, shots []*modelpb.ShotResult) error {
+	storyUUID, err := uuid.Parse(job.StoryID)
+	if err != nil {
+		return err
+	}
 	for _, s := range shots {
 		if err := w.upsertShot(ctx, job, s); err != nil {
 			return err
 		}
 	}
-	return w.data.DB.WithContext(ctx).
+	if err := w.data.DB.WithContext(ctx).
 		Model(&model.Story{}).
-		Where("id = ?", job.StoryID).
-		Update("status", global.StoryReady).Error
+		Where("id = ?", storyUUID).
+		Update("status", global.StoryReady).Error; err != nil {
+		return err
+	}
+	if err := w.ensureStoryCover(ctx, storyUUID); err != nil {
+		w.logger.Warn("ensure story cover", zap.Error(err), zap.String("story_id", storyUUID.String()))
+	}
+	return nil
 }
 
 func (w *worker) upsertShot(ctx context.Context, job service.StoryJobMessage, shot *modelpb.ShotResult) error {
@@ -226,28 +225,40 @@ func (w *worker) upsertShot(ctx context.Context, job service.StoryJobMessage, sh
 	if sequence == "" {
 		sequence = shot.ShotId
 	}
-	var existing model.Shot
-	err = w.data.DB.WithContext(ctx).
-		Where("story_id = ? AND sequence = ?", storyID, sequence).
-		First(&existing).Error
-
 	details := shot.Details
 	if details == "" {
 		details = shot.Script
 	}
 
-	imageURL := shot.ImageUrl
-	if len(shot.ImageData) > 0 {
-		objectKey := fmt.Sprintf("%s/%s.png", job.StoryID, sequence)
-		if url, uploadErr := w.storage.Upload(ctx, objectKey, bytes.NewReader(shot.ImageData)); uploadErr == nil {
-			imageURL = url
+	shotIDStr := shot.ShotId
+	if shotIDStr == "" {
+		shotIDStr = job.Payload.ShotID
+	}
+
+	var (
+		existing  model.Shot
+		shotUUID  uuid.UUID
+		hasShotID bool
+	)
+	if shotIDStr != "" {
+		if parsed, parseErr := uuid.Parse(shotIDStr); parseErr == nil {
+			shotUUID = parsed
+			hasShotID = true
+			if err := w.data.DB.WithContext(ctx).First(&existing, "id = ?", shotUUID).Error; err == nil {
+				return w.updateShot(ctx, &existing, shot, details)
+			} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
 		}
 	}
 
+	err = w.data.DB.WithContext(ctx).
+		Where("story_id = ? AND sequence = ?", storyID, sequence).
+		First(&existing).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		shotID := uuid.New()
-		if parsed, parseErr := uuid.Parse(shot.ShotId); parseErr == nil {
-			shotID = parsed
+		if hasShotID {
+			shotID = shotUUID
 		}
 		userID, _ := uuid.Parse(job.UserID)
 		newShot := model.Shot{
@@ -265,17 +276,37 @@ func (w *worker) upsertShot(ctx context.Context, job service.StoryJobMessage, sh
 			Transition:  shot.Transition,
 			Voice:       shot.Voice,
 			Status:      global.ShotDone,
-			ImageURL:    imageURL,
+			ImageURL:    shot.ImageUrl,
 			BGM:         shot.Bgm,
 		}
-		return w.data.DB.WithContext(ctx).Create(&newShot).Error
+		if err := w.data.DB.WithContext(ctx).Create(&newShot).Error; err != nil {
+			return err
+		}
+		if shot.ImageUrl != "" {
+			if err := w.ensureStoryCover(ctx, storyID); err != nil {
+				w.logger.Warn("ensure story cover", zap.Error(err), zap.String("story_id", storyID.String()))
+			}
+		}
+		return nil
 	}
 	if err != nil {
 		return err
 	}
 
+	if err := w.updateShot(ctx, &existing, shot, details); err != nil {
+		return err
+	}
+	if shot.ImageUrl != "" {
+		if err := w.ensureStoryCover(ctx, storyID); err != nil {
+			w.logger.Warn("ensure story cover", zap.Error(err), zap.String("story_id", storyID.String()))
+		}
+	}
+	return nil
+}
+
+func (w *worker) updateShot(ctx context.Context, existing *model.Shot, shot *modelpb.ShotResult, details string) error {
 	return w.data.DB.WithContext(ctx).
-		Model(&existing).
+		Model(existing).
 		Updates(map[string]interface{}{
 			"title":       shot.Title,
 			"description": shot.Description,
@@ -285,7 +316,7 @@ func (w *worker) upsertShot(ctx context.Context, job service.StoryJobMessage, sh
 			"transition":  shot.Transition,
 			"voice":       shot.Voice,
 			"status":      global.ShotDone,
-			"image_url":   imageURL,
+			"image_url":   shot.ImageUrl,
 			"bgm":         shot.Bgm,
 		}).Error
 }
@@ -304,4 +335,34 @@ func newKafkaReader(cfg *conf.Config) *kafka.Reader {
 		MinBytes: 1,
 		MaxBytes: 10e6,
 	})
+}
+
+func (w *worker) ensureStoryCover(ctx context.Context, storyID uuid.UUID) error {
+	var story model.Story
+	if err := w.data.DB.WithContext(ctx).
+		Select("id", "cover_url").
+		First(&story, "id = ?", storyID).Error; err != nil {
+		return err
+	}
+	if story.CoverURL != "" {
+		return nil
+	}
+	var shot model.Shot
+	if err := w.data.DB.WithContext(ctx).
+		Select("image_url").
+		Where("story_id = ? AND image_url <> ''", storyID).
+		Order("sequence ASC").
+		First(&shot).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		return err
+	}
+	if shot.ImageURL == "" {
+		return nil
+	}
+	return w.data.DB.WithContext(ctx).
+		Model(&model.Story{}).
+		Where("id = ?", storyID).
+		Update("cover_url", shot.ImageURL).Error
 }

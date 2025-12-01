@@ -98,4 +98,5 @@ temp/
 .cursor/
 *.pdf
 *.env
+*.log
 
