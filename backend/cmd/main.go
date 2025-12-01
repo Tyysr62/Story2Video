@@ -31,7 +31,7 @@ func main() {
 		panic(fmt.Errorf("load config: %w", err))
 	}
 
-	log, err := pkgLogger.New(cfg.Server.Mode)
+	log, err := pkgLogger.NewWithFile(cfg.Server.Mode, "logs/server-error.log")
 	if err != nil {
 		panic(fmt.Errorf("init logger: %w", err))
 	}

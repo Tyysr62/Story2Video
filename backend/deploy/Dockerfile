@@ -9,15 +9,16 @@ COPY . .
 
 ARG TARGETOS=linux
 ARG TARGETARCH=amd64
-RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o server ./cmd
+ARG MAIN_PACKAGE=./cmd
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o app ${MAIN_PACKAGE}
 
 FROM alpine:3.20
 
 RUN apk add --no-cache ca-certificates tzdata ffmpeg
 
 WORKDIR /srv/story2video
-COPY --from=builder /app/server .
+COPY --from=builder /app/app ./app
 COPY --from=builder /app/config ./config
 ENV TZ=Asia/Shanghai
-EXPOSE 8080
-CMD ["./server"]
+EXPOSE 8080 9002
+CMD ["./app"]

@@ -2,6 +2,9 @@ package conf
 
 import (
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
 
 	"github.com/spf13/viper"
 )
@@ -44,28 +47,28 @@ type GRPC struct {
 	DialTimeout int    `mapstructure:"dial_timeout"`
 }
 
-type OSS struct {
-	Endpoint        string `mapstructure:"endpoint"`
-	AccessKeyID     string `mapstructure:"access_key_id"`
-	AccessKeySecret string `mapstructure:"access_key_secret"`
-	Bucket          string `mapstructure:"bucket"`
-	CallbackURL     string `mapstructure:"callback_url"`
+type ModelService struct {
+	BaseURL string `mapstructure:"base_url"`
+	Timeout int    `mapstructure:"timeout"`
 }
 
 type Kafka struct {
-	Brokers []string `mapstructure:"brokers"`
-	Topic   string   `mapstructure:"topic"`
-	Group   string   `mapstructure:"group"`
+	Brokers           []string `mapstructure:"brokers"`
+	Topic             string   `mapstructure:"topic"`
+	Group             string   `mapstructure:"group"`
+	Partitions        int      `mapstructure:"partitions"`
+	ReplicationFactor int      `mapstructure:"replication_factor"`
+	AutoCreateTopic   bool     `mapstructure:"auto_create_topic"`
 }
 
 type Config struct {
-	Server   Server   `mapstructure:"server"`
-	Database Database `mapstructure:"database"`
-	Redis    Redis    `mapstructure:"redis"`
-	Pool     Pool     `mapstructure:"pool"`
-	GRPC     GRPC     `mapstructure:"grpc"`
-	OSS      OSS      `mapstructure:"oss"`
-	Kafka    Kafka    `mapstructure:"kafka"`
+	Server       Server       `mapstructure:"server"`
+	Database     Database     `mapstructure:"database"`
+	Redis        Redis        `mapstructure:"redis"`
+	Pool         Pool         `mapstructure:"pool"`
+	GRPC         GRPC         `mapstructure:"grpc"`
+	ModelService ModelService `mapstructure:"model_service"`
+	Kafka        Kafka        `mapstructure:"kafka"`
 }
 
 func Load(path string) (*Config, error) {
@@ -77,6 +80,7 @@ func Load(path string) (*Config, error) {
 		v.SetConfigName("config")
 	}
 	v.SetConfigType("yaml")
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
 
 	if err := v.ReadInConfig(); err != nil {
@@ -87,5 +91,59 @@ func Load(path string) (*Config, error) {
 	if err := v.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("unmarshal config: %w", err)
 	}
+	overrideFromEnv(&cfg)
 	return &cfg, nil
+}
+
+func overrideFromEnv(cfg *Config) {
+	setString := func(env string, target *string) {
+		if val := strings.TrimSpace(os.Getenv(env)); val != "" {
+			*target = val
+		}
+	}
+	setInt := func(env string, target *int) {
+		if val := strings.TrimSpace(os.Getenv(env)); val != "" {
+			if num, err := strconv.Atoi(val); err == nil {
+				*target = num
+			}
+		}
+	}
+	setBool := func(env string, target *bool) {
+		if val := strings.TrimSpace(os.Getenv(env)); val != "" {
+			if parsed, err := strconv.ParseBool(val); err == nil {
+				*target = parsed
+			}
+		}
+	}
+
+	setString("SERVER_MODE", &cfg.Server.Mode)
+	setInt("SERVER_PORT", &cfg.Server.Port)
+
+	setString("DATABASE_HOST", &cfg.Database.Host)
+	setInt("DATABASE_PORT", &cfg.Database.Port)
+	setString("DATABASE_USER", &cfg.Database.User)
+	setString("DATABASE_PASSWORD", &cfg.Database.Password)
+	setString("DATABASE_NAME", &cfg.Database.Name)
+
+	setString("REDIS_HOST", &cfg.Redis.Host)
+	setInt("REDIS_PORT", &cfg.Redis.Port)
+	setString("REDIS_PASSWORD", &cfg.Redis.Password)
+
+	setInt("POOL_SIZE", &cfg.Pool.Size)
+	setInt("POOL_EXPIRY_SECONDS", &cfg.Pool.ExpirySeconds)
+
+	setString("GRPC_ADDR", &cfg.GRPC.Addr)
+	setInt("GRPC_DIAL_TIMEOUT", &cfg.GRPC.DialTimeout)
+
+	setString("MODEL_SERVICE_BASE_URL", &cfg.ModelService.BaseURL)
+	setInt("MODEL_SERVICE_TIMEOUT", &cfg.ModelService.Timeout)
+
+	if brokers := strings.TrimSpace(os.Getenv("KAFKA_BROKERS")); brokers != "" {
+		cfg.Kafka.Brokers = strings.Split(brokers, ",")
+	}
+	setString("KAFKA_TOPIC", &cfg.Kafka.Topic)
+	setString("KAFKA_GROUP", &cfg.Kafka.Group)
+	setInt("KAFKA_PARTITIONS", &cfg.Kafka.Partitions)
+	setInt("KAFKA_REPLICATION_FACTOR", &cfg.Kafka.ReplicationFactor)
+	setBool("KAFKA_AUTO_CREATE_TOPIC", &cfg.Kafka.AutoCreateTopic)
 }
