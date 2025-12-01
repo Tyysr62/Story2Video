@@ -36,6 +36,7 @@ dist/
 build/
 .output/
 .nuxt/
+.playwright-mcp/
 
 # ==========================
 # 3. 操作系统与IDE文件

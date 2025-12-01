@@ -8,6 +8,7 @@ module.exports = {
       "./packages/ui/**/*.{js,jsx,ts,tsx}",
       "./apps/desktop/src/**/*.{js,jsx,ts,tsx}",
       "./apps/mobile/**/*.{js,jsx,ts,tsx}",
+      "./apps/web/src/**/*.{js,jsx,ts,tsx}",
     ]),
   ],
 };

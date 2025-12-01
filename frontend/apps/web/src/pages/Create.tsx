@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -122,7 +122,7 @@ const Create = () => {
   return (
     <Box
       flex={1}
-      p="$8"
+      p="$6"
       bg="$backgroundLight0"
       justifyContent="center"
       alignItems="center"
@@ -131,7 +131,6 @@ const Create = () => {
         space="xl"
         width="100%"
         maxWidth={600}
-        className="animate-fade-in"
       >
         <VStack space="xs">
           <Heading size="2xl">Create New Story</Heading>
@@ -142,7 +141,7 @@ const Create = () => {
 
         <VStack space="md">
           <Text fontWeight="$bold">Story Text</Text>
-          <Textarea size="xl" h={200} className="rounded-2xl">
+          <Textarea size="xl" h={200}>
             <TextareaInput
               placeholder="Once upon a time..."
               value={storyText}
@@ -157,7 +156,7 @@ const Create = () => {
             selectedValue={style}
             onValueChange={(v) => setStyle(v as StoryStyle)}
           >
-            <SelectTrigger variant="outline" size="md" className="rounded-xl">
+            <SelectTrigger variant="outline" size="md">
               <SelectInput placeholder="Select option" />
               <SelectIcon mr="$3" as={ChevronDownIcon} />
             </SelectTrigger>
@@ -181,7 +180,7 @@ const Create = () => {
           action="primary"
           isDisabled={loading}
           onPress={handleGenerate}
-          className="rounded-full"
+          borderRadius="$full"
         >
           {loading && <Spinner color="$white" mr="$2" />}
           <ButtonText>
