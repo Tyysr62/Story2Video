@@ -3,6 +3,7 @@ package data
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/panjf2000/ants/v2"
@@ -25,7 +26,8 @@ type Data struct {
 }
 
 func NewData(ctx context.Context, cfg *conf.Config, log *zap.Logger) (*Data, func(), error) {
-	db, err := newDB(cfg.Database, log)
+	colorful := !strings.EqualFold(cfg.Server.Mode, "release")
+	db, err := newDB(cfg.Database, log, colorful)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -70,7 +72,7 @@ func NewData(ctx context.Context, cfg *conf.Config, log *zap.Logger) (*Data, fun
 	}, cleanup, nil
 }
 
-func newDB(cfg conf.Database, log *zap.Logger) (*gorm.DB, error) {
+func newDB(cfg conf.Database, log *zap.Logger, colorful bool) (*gorm.DB, error) {
 	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.Name, cfg.SSLMode)
 	gormLogger := logger.New(
@@ -79,7 +81,7 @@ func newDB(cfg conf.Database, log *zap.Logger) (*gorm.DB, error) {
 			SlowThreshold:             time.Second,
 			LogLevel:                  logger.Info,
 			IgnoreRecordNotFoundError: true,
-			Colorful:                  false,
+			Colorful:                  colorful,
 		},
 	)
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
