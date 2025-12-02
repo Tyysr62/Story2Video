@@ -10,7 +10,7 @@ import "@story2video/ui/global.css";
 import { GluestackUIProvider } from "@story2video/ui";
 
 import { useColorScheme } from "../hooks/use-color-scheme";
-import { ApiProvider, SocketProvider, SocketManager } from "@story2video/core";
+import { ApiProvider, QueryProvider } from "@story2video/core";
 import { createAxiosHttpClient } from "@story2video/core/axios";
 
 export const unstable_settings = {
@@ -24,11 +24,6 @@ const client = createAxiosHttpClient({
   baseURL: apiBaseURL,
   getAuthToken: getToken,
 });
-const socketManager = new SocketManager();
-const wsUrl =
-  process.env.EXPO_PUBLIC_WS_URL ??
-  apiBaseURL.replace(/^http/i, "ws") + "/stream";
-socketManager.connect(wsUrl, getToken());
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -36,7 +31,7 @@ export default function RootLayout() {
 
   return (
     <GluestackUIProvider mode={themeMode}>
-      <SocketProvider socket={socketManager}>
+      <QueryProvider>
         <ApiProvider client={client}>
           <ThemeProvider
             value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
@@ -52,7 +47,7 @@ export default function RootLayout() {
             <StatusBar style="auto" />
           </ThemeProvider>
         </ApiProvider>
-      </SocketProvider>
+      </QueryProvider>
     </GluestackUIProvider>
   );
 }

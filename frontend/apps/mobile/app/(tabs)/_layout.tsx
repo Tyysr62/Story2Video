@@ -41,6 +41,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="operations"
+        options={{
+          title: "Tasks",
+          tabBarIcon: ({ color }) => (
+            <TabBarIcon name="tasks" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="assets"
         options={{
           title: "Assets",

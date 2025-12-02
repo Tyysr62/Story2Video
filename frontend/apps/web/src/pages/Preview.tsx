@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Box,
   Heading,
@@ -17,21 +17,30 @@ import {
   Spinner,
 } from "@story2video/ui";
 import { useMediaQuery } from "../hooks/useMediaQuery";
+import { useStory } from "@story2video/core";
 
-// Mock video URL
-const MOCK_VIDEO_URL = "https://www.w3schools.com/html/mov_bbb.mp4";
+// Fallback mock video URL
+const FALLBACK_VIDEO_URL = "https://www.w3schools.com/html/mov_bbb.mp4";
 
 const Preview = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const storyId = searchParams.get("storyId") || "";
   const toast = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [exporting, setExporting] = useState(false);
   const isMobile = useMediaQuery("(max-width: 767px)");
 
+  // 获取故事数据
+  const { data: story, isLoading } = useStory(storyId);
+
+  const videoUrl = story?.video_url || FALLBACK_VIDEO_URL;
+  const storyName = story?.title || "My Story Video";
+
   const handleExport = async () => {
     setExporting(true);
     try {
-      // Mock export process
+      // TODO: 实现实际的导出逻辑
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
       toast.show({
@@ -45,7 +54,7 @@ const Preview = () => {
           );
         },
       });
-    } catch (error) {
+    } catch (err) {
       toast.show({
         placement: "top",
         render: ({ id }) => {
@@ -61,6 +70,16 @@ const Preview = () => {
       setExporting(false);
     }
   };
+
+  // 加载中状态
+  if (isLoading) {
+    return (
+      <Box flex={1} bg="$backgroundLight0" justifyContent="center" alignItems="center">
+        <Spinner size="large" />
+        <Text mt="$4">Loading preview...</Text>
+      </Box>
+    );
+  }
 
   // Mobile layout
   if (isMobile) {
@@ -78,7 +97,7 @@ const Preview = () => {
         >
           <Button
             variant="link"
-            onPress={() => navigate("/storyboard")}
+            onPress={() => navigate(`/storyboard?storyId=${storyId}`)}
             p="$0"
           >
             <Icon as={ArrowLeftIcon} size="lg" />
@@ -97,10 +116,10 @@ const Preview = () => {
           >
             <video
               ref={videoRef}
-              src={MOCK_VIDEO_URL}
+              src={videoUrl}
               controls
               style={{ width: "100%", height: "100%", outline: "none" }}
-              poster="https://placehold.co/800x450/png?text=Video+Preview"
+              poster={story?.cover_url || "https://placehold.co/800x450/png?text=Video+Preview"}
             >
               Your browser does not support the video tag.
             </video>
@@ -115,8 +134,8 @@ const Preview = () => {
             space="md"
           >
             <VStack>
-              <Text fontWeight="$bold">My Story Video.mp4</Text>
-              <Text size="sm" color="$textLight500">Duration: 00:10 • 1080p</Text>
+              <Text fontWeight="$bold">{storyName}.mp4</Text>
+              <Text size="sm" color="$textLight500">1080p</Text>
             </VStack>
 
             <Button
@@ -149,7 +168,7 @@ const Preview = () => {
       >
         <Button
           variant="link"
-          onPress={() => navigate("/storyboard")}
+          onPress={() => navigate(`/storyboard?storyId=${storyId}`)}
           p="$0"
         >
           <Icon as={ArrowLeftIcon} size="xl" color="$textLight800" />
@@ -172,14 +191,12 @@ const Preview = () => {
           shadowRadius={8}
           elevation={5}
         >
-          {/* Video Player */}
-          {/* Using native video controls to satisfy: Play, Pause, Drag Timeline, Adjust Volume */}
           <video
             ref={videoRef}
-            src={MOCK_VIDEO_URL}
+            src={videoUrl}
             controls
             style={{ width: "100%", height: "100%", outline: "none" }}
-            poster="https://placehold.co/1024x576/png?text=Video+Preview"
+            poster={story?.cover_url || "https://placehold.co/1024x576/png?text=Video+Preview"}
           >
             Your browser does not support the video tag.
           </video>
@@ -203,8 +220,8 @@ const Preview = () => {
           elevation={1}
         >
           <VStack>
-            <Heading size="sm">My Story Video.mp4</Heading>
-            <Text size="sm" color="$textLight500">Duration: 00:10 • 1080p</Text>
+            <Heading size="sm">{storyName}.mp4</Heading>
+            <Text size="sm" color="$textLight500">1080p</Text>
           </VStack>
 
           <Button

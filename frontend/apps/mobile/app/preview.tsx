@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Pressable } from "react-native";
+import { useLocalSearchParams } from "expo-router";
 import {
   Box,
   Heading,
@@ -15,18 +16,26 @@ import {
   Image,
 } from "@story2video/ui";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
+import { useStory } from "@story2video/core";
 
-const MOCK_THUMBNAIL = "https://placehold.co/600x400/png?text=Video+Preview";
+const FALLBACK_THUMBNAIL = "https://placehold.co/600x400/png?text=Video+Preview";
 
 export default function PreviewScreen() {
+  const { storyId = "" } = useLocalSearchParams<{ storyId?: string }>();
   const toast = useToast();
   const [exporting, setExporting] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
 
+  // 获取故事数据
+  const { data: story, isLoading } = useStory(storyId);
+
+  const thumbnailUrl = story?.cover_url || FALLBACK_THUMBNAIL;
+  const storyName = story?.title || "My Story Video";
+
   const handleExport = async () => {
     setExporting(true);
     try {
-      // Mock export process
+      // TODO: 实现实际的导出逻辑
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
       toast.show({
@@ -40,7 +49,7 @@ export default function PreviewScreen() {
           );
         },
       });
-    } catch (error) {
+    } catch (err) {
       toast.show({
         placement: "top",
         render: ({ id }) => {
@@ -57,6 +66,16 @@ export default function PreviewScreen() {
     }
   };
 
+  // 加载中状态
+  if (isLoading) {
+    return (
+      <Box flex={1} bg="$backgroundLight0" justifyContent="center" alignItems="center">
+        <Spinner size="large" />
+        <Text mt="$4">Loading preview...</Text>
+      </Box>
+    );
+  }
+
   return (
     <Box flex={1} bg="$backgroundLight0" p="$4">
       <VStack flex={1} space="lg">
@@ -72,7 +91,7 @@ export default function PreviewScreen() {
           mt="$4"
         >
           <Image
-            source={{ uri: MOCK_THUMBNAIL }}
+            source={{ uri: thumbnailUrl }}
             alt="Video Thumbnail"
             w="100%"
             h="100%"
@@ -100,9 +119,9 @@ export default function PreviewScreen() {
           borderWidth={1}
           borderColor="$borderLight200"
         >
-          <Heading size="sm">My Story Video.mp4</Heading>
+          <Heading size="sm">{storyName}.mp4</Heading>
           <Text size="sm" color="$textLight500">
-            Duration: 00:10 • 1080p
+            1080p
           </Text>
         </VStack>
 

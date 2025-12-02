@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import { useState, useEffect } from "react";
 import { ScrollView, Dimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import {
   Box,
   Heading,
@@ -19,96 +19,152 @@ import {
   ToastTitle,
   ToastDescription,
 } from "@story2video/ui";
-
-// Mock data for storyboard shots
-const initialShots = [
-  {
-    id: "1",
-    title: "Shot 1: The Beginning",
-    status: "Ready",
-    thumbnail: "https://placehold.co/600x400/png?text=Shot+1",
-  },
-  {
-    id: "2",
-    title: "Shot 2: The Journey",
-    status: "Generating",
-    thumbnail: "https://placehold.co/600x400/png?text=Shot+2",
-  },
-  {
-    id: "3",
-    title: "Shot 3: The Climax",
-    status: "Draft",
-    thumbnail: "https://placehold.co/600x400/png?text=Shot+3",
-  },
-  {
-    id: "4",
-    title: "Shot 4: The End",
-    status: "Draft",
-    thumbnail: "https://placehold.co/600x400/png?text=Shot+4",
-  },
-];
+import {
+  useShots,
+  useCompileVideo,
+  useOperationQuery,
+  extractOperationId,
+  ShotStatus,
+} from "@story2video/core";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CARD_WIDTH = SCREEN_WIDTH * 0.8;
 
 export default function StoryboardScreen() {
-  const [shots] = useState(initialShots);
-  const [generating, setGenerating] = useState(false);
+  const { storyId = "" } = useLocalSearchParams<{ storyId?: string }>();
   const toast = useToast();
+
+  // 编译视频操作 ID
+  const [compileOperationId, setCompileOperationId] = useState<string | null>(null);
+
+  // 使用 TanStack Query 获取 shots 列表
+  const { data: shotsData, isLoading, error, refetch } = useShots(storyId);
+  const shots = shotsData?.shots ?? [];
+
+  // 编译视频 mutation
+  const compileVideoMutation = useCompileVideo();
+
+  // 轮询编译进度
+  const compileOperationQuery = useOperationQuery(compileOperationId, {
+    onSuccess: (data) => {
+      if (data.status === "succeeded") {
+        toast.show({
+          placement: "top",
+          render: ({ id }) => (
+            <Toast action="success" variant="accent" nativeID={id}>
+              <ToastTitle>Success</ToastTitle>
+              <ToastDescription>Video synthesis complete!</ToastDescription>
+            </Toast>
+          ),
+        });
+        router.push("/preview");
+      }
+    },
+  });
+
+  // 监听编译失败
+  useEffect(() => {
+    if (compileOperationQuery.isFailed && compileOperationQuery.errorMessage) {
+      toast.show({
+        placement: "top",
+        render: ({ id }) => (
+          <Toast action="error" variant="accent" nativeID={id}>
+            <ToastTitle>Error</ToastTitle>
+            <ToastDescription>{compileOperationQuery.errorMessage}</ToastDescription>
+          </Toast>
+        ),
+      });
+    }
+  }, [compileOperationQuery.isFailed, compileOperationQuery.errorMessage, toast]);
 
   const handleDetailClick = (id: string) => {
     router.push(`/shot/${id}`);
   };
 
   const handleGenerateVideo = async () => {
-    setGenerating(true);
+    if (!storyId) {
+      toast.show({
+        placement: "top",
+        render: ({ id }) => (
+          <Toast action="error" variant="accent" nativeID={id}>
+            <ToastTitle>Error</ToastTitle>
+            <ToastDescription>Story ID is required.</ToastDescription>
+          </Toast>
+        ),
+      });
+      return;
+    }
+
     try {
-      // Mock video synthesis process
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-
+      const result = await compileVideoMutation.mutateAsync({ storyId });
+      if (result?.operation_name) {
+        const opId = extractOperationId(result.operation_name);
+        setCompileOperationId(opId);
+      }
+    } catch (err: any) {
       toast.show({
         placement: "top",
-        render: ({ id }) => {
-          return (
-            <Toast action="success" variant="accent" nativeID={id}>
-              <ToastTitle>Success</ToastTitle>
-              <ToastDescription>Video synthesis complete!</ToastDescription>
-            </Toast>
-          );
-        },
+        render: ({ id }) => (
+          <Toast action="error" variant="accent" nativeID={id}>
+            <ToastTitle>Error</ToastTitle>
+            <ToastDescription>{err?.message || "Video generation failed."}</ToastDescription>
+          </Toast>
+        ),
       });
-
-      router.push("/preview");
-    } catch (error) {
-      console.error(error);
-      toast.show({
-        placement: "top",
-        render: ({ id }) => {
-          return (
-            <Toast action="error" variant="accent" nativeID={id}>
-              <ToastTitle>Error</ToastTitle>
-              <ToastDescription>Video generation failed.</ToastDescription>
-            </Toast>
-          );
-        },
-      });
-    } finally {
-      setGenerating(false);
     }
   };
 
-  const getBadgeAction = (status: string) => {
+  const getBadgeAction = (status: ShotStatus | string) => {
     switch (status) {
-      case "Ready":
+      case ShotStatus.DONE:
+      case "Done":
         return "success";
+      case ShotStatus.GENERATING:
       case "Generating":
         return "info";
-      case "Draft":
-        return "muted";
+      case ShotStatus.FAILED:
+        return "error";
       default:
-        return "info";
+        return "muted";
     }
   };
+
+  const getStatusText = (status: ShotStatus | string) => {
+    switch (status) {
+      case ShotStatus.DONE:
+        return "Done";
+      case ShotStatus.GENERATING:
+        return "Generating";
+      case ShotStatus.FAILED:
+        return "Failed";
+      default:
+        return status;
+    }
+  };
+
+  const isGenerating = compileVideoMutation.isPending || (!!compileOperationId && !compileOperationQuery.isComplete);
+
+  // 加载中状态
+  if (isLoading) {
+    return (
+      <Box flex={1} bg="$backgroundLight0" justifyContent="center" alignItems="center">
+        <Spinner size="large" />
+        <Text mt="$4">Loading shots...</Text>
+      </Box>
+    );
+  }
+
+  // 错误状态
+  if (error) {
+    return (
+      <Box flex={1} bg="$backgroundLight0" justifyContent="center" alignItems="center" p="$4">
+        <Text color="$error500" mb="$4">Failed to load shots</Text>
+        <Button onPress={() => refetch()}>
+          <ButtonText>Retry</ButtonText>
+        </Button>
+      </Box>
+    );
+  }
 
   return (
     <Box flex={1} bg="$backgroundLight0">
@@ -122,65 +178,71 @@ export default function StoryboardScreen() {
           </Box>
 
           <Box flex={1} justifyContent="center">
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{
-                paddingHorizontal: 0,
-                alignItems: "center",
-              }}
-              decelerationRate="fast"
-              snapToInterval={CARD_WIDTH + 20} // Width + margin
-              snapToAlignment="center"
-            >
-              {shots.map((shot, index) => (
-                <Box
-                  key={shot.id}
-                  width={CARD_WIDTH}
-                  mr={index === shots.length - 1 ? 0 : "$5"}
-                  bg="$white"
-                  borderRadius="$xl"
-                  borderColor="$borderLight200"
-                  borderWidth={1}
-                  overflow="hidden"
-                >
-                  <Image
-                    source={{ uri: shot.thumbnail }}
-                    alt={shot.title}
-                    h={200}
-                    w="100%"
-                    resizeMode="cover"
-                  />
-                  <VStack space="sm" p="$4">
-                    <VStack>
-                      <Heading size="md" isTruncated>
-                        {shot.title}
-                      </Heading>
-                      <HStack mt="$1">
-                        <Badge
-                          size="md"
-                          variant="solid"
-                          borderRadius="$sm"
-                          action={getBadgeAction(shot.status)}
-                        >
-                          <BadgeText>{shot.status}</BadgeText>
-                        </Badge>
-                      </HStack>
-                    </VStack>
+            {shots.length === 0 ? (
+              <Box alignItems="center" py="$8">
+                <Text color="$textLight400">No shots available</Text>
+              </Box>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{
+                  paddingHorizontal: 0,
+                  alignItems: "center",
+                }}
+                decelerationRate="fast"
+                snapToInterval={CARD_WIDTH + 20}
+                snapToAlignment="center"
+              >
+                {shots.map((shot, index) => (
+                  <Box
+                    key={shot.id}
+                    width={CARD_WIDTH}
+                    mr={index === shots.length - 1 ? 0 : "$5"}
+                    bg="$white"
+                    borderRadius="$xl"
+                    borderColor="$borderLight200"
+                    borderWidth={1}
+                    overflow="hidden"
+                  >
+                    <Image
+                      source={{ uri: shot.image_url || `https://placehold.co/600x400/png?text=Shot+${shot.sequence}` }}
+                      alt={`Shot ${shot.sequence}`}
+                      h={200}
+                      w="100%"
+                      resizeMode="cover"
+                    />
+                    <VStack space="sm" p="$4">
+                      <VStack>
+                        <Heading size="md" isTruncated>
+                          Shot {shot.sequence}: {shot.details?.slice(0, 20) || "Untitled"}
+                        </Heading>
+                        <HStack mt="$1">
+                          <Badge
+                            size="md"
+                            variant="solid"
+                            borderRadius="$sm"
+                            action={getBadgeAction(shot.status)}
+                          >
+                            <BadgeText>{getStatusText(shot.status)}</BadgeText>
+                          </Badge>
+                        </HStack>
+                      </VStack>
 
-                    <Button
-                      size="md"
-                      variant="outline"
-                      action="secondary"
-                      onPress={() => handleDetailClick(shot.id)}
-                      mt="$2"
-                    >
-                      <ButtonText>Details</ButtonText>
-                    </Button>
-                  </VStack>
-                </Box>
-              ))}
-            </ScrollView>
+                      <Button
+                        size="md"
+                        variant="outline"
+                        action="secondary"
+                        onPress={() => handleDetailClick(shot.id)}
+                        mt="$2"
+                      >
+                        <ButtonText>Details</ButtonText>
+                      </Button>
+                    </VStack>
+                  </Box>
+                ))}
+              </ScrollView>
+            )}
           </Box>
 
           <Box py="$2">
@@ -188,13 +250,18 @@ export default function StoryboardScreen() {
               size="xl"
               action="primary"
               onPress={handleGenerateVideo}
-              isDisabled={generating}
+              isDisabled={isGenerating || shots.length === 0}
             >
-              {generating && <Spinner mr="$2" color="$white" />}
+              {isGenerating && <Spinner mr="$2" color="$white" />}
               <ButtonText>
-                {generating ? "Synthesizing..." : "Generate Video"}
+                {isGenerating ? "Synthesizing..." : "Generate Video"}
               </ButtonText>
             </Button>
+            {compileOperationId && !compileOperationQuery.isComplete && (
+              <Text size="xs" color="$textLight400" mt="$2" textAlign="center">
+                每 5 秒自动刷新状态
+              </Text>
+            )}
           </Box>
         </VStack>
       </SafeAreaView>

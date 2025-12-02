@@ -17,6 +17,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@tanstack/react-query": "^5.90.11",
     "tailwindcss": "^3.4.1",
     "turbo": "^2.6.1"
   }

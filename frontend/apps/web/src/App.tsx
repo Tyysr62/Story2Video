@@ -11,6 +11,7 @@ import Storyboard from "./pages/Storyboard";
 import ShotDetail from "./pages/ShotDetail";
 import Assets from "./pages/Assets";
 import Preview from "./pages/Preview";
+import Operations from "./pages/Operations";
 import "@story2video/ui/global.css";
 
 function App() {
@@ -26,6 +27,7 @@ function App() {
             <Route path="/shot/:id" element={<ShotDetail />} />
             <Route path="/assets" element={<Assets />} />
             <Route path="/preview" element={<Preview />} />
+            <Route path="/operations" element={<Operations />} />
           </Route>
         </Routes>
       </Router>

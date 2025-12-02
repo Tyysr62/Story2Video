@@ -16,12 +16,13 @@ import {
   Icon,
   Heading,
 } from "@story2video/ui";
-import { Home, Layers, Library, Video } from "lucide-react";
+import { Home, Layers, Library, Video, ListTodo } from "lucide-react";
 import Create from "./pages/Create";
 import Storyboard from "./pages/Storyboard";
 import ShotDetail from "./pages/ShotDetail";
 import Assets from "./pages/Assets";
 import Preview from "./pages/Preview";
+import Operations from "./pages/Operations";
 import "@story2video/ui/global.css";
 
 const SidebarItem = ({
@@ -107,6 +108,7 @@ const Layout = () => {
             </Text>
             <SidebarItem to="/" icon={Home} label="Create Story" />
             <SidebarItem to="/storyboard" icon={Layers} label="Storyboard" />
+            <SidebarItem to="/operations" icon={ListTodo} label="Tasks" />
             <SidebarItem to="/assets" icon={Library} label="Assets Library" />
           </VStack>
         </VStack>
@@ -133,6 +135,7 @@ function App() {
             <Route path="/shot/:id" element={<ShotDetail />} />
             <Route path="/assets" element={<Assets />} />
             <Route path="/preview" element={<Preview />} />
+            <Route path="/operations" element={<Operations />} />
           </Route>
         </Routes>
       </Router>

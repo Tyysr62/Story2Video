@@ -1,100 +1,162 @@
-export enum GenerationState {
-  STATE_UNSPECIFIED = "STATE_UNSPECIFIED",
-  STATE_PENDING = "STATE_PENDING",
-  STATE_RUNNING = "STATE_RUNNING",
-  STATE_SUCCEEDED = "STATE_SUCCEEDED",
-  STATE_FAILED = "STATE_FAILED",
+/**
+ * 操作状态枚举（匹配 api.md 返回格式）
+ */
+export enum OperationStatus {
+  QUEUED = "queued",
+  RUNNING = "running",
+  SUCCEEDED = "succeeded",
+  FAILED = "failed",
 }
 
+/**
+ * 故事状态枚举
+ */
+export enum StoryStatus {
+  GENERATING = "generating",
+  READY = "ready",
+  FAILED = "failed",
+}
+
+/**
+ * 分镜状态枚举
+ */
+export enum ShotStatus {
+  GENERATING = "generating",
+  DONE = "done",
+  FAILED = "failed",
+}
+
+/**
+ * 故事风格枚举（小写格式，匹配 api.md）
+ */
 export enum StoryStyle {
-  STYLE_MOVIE = "STYLE_MOVIE",
-  STYLE_ANIME = "STYLE_ANIME",
-  STYLE_REALISTIC = "STYLE_REALISTIC",
+  MOVIE = "movie",
+  ANIME = "anime",
+  REALISTIC = "realistic",
 }
 
+/**
+ * 操作类型枚举
+ */
+export enum OperationType {
+  STORY_CREATE = "story_create",
+  SHOT_REGEN = "shot_regen",
+  VIDEO_RENDER = "video_render",
+}
+
+/**
+ * 故事实体（匹配 GET /v1/stories 返回格式）
+ */
 export interface Story {
-  name?: string; // Resource name e.g. "stories/123-abc"
-  id?: string;   // Parsed ID for convenience
-  display_name?: string;
-  script_content?: string;
-  style?: StoryStyle;
+  id: string;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+  content: string;        // 脚本内容
+  title: string;          // 显示名称
+  style: StoryStyle;
+  duration: number;
+  status: StoryStatus;
+  timeline: any | null;
+  cover_url: string;
+  video_url: string;
 }
 
+/**
+ * 创建故事请求体（POST /v1/stories）
+ */
 export interface CreateStoryRequest {
-  story: {
-    display_name: string;
-    script_content: string;
-    style: StoryStyle;
-  };
+  display_name: string;
+  script_content: string;
+  style: StoryStyle;
 }
 
+/**
+ * 分镜实体（匹配 GET /v1/stories/{id}/shots 返回格式）
+ */
 export interface Shot {
-  name?: string; // Resource name e.g. "stories/123/shots/456"
-  id?: string;
-  prompt: string;
-  narration_content: string;
-  image_url?: string;
-  audio_url?: string;
-  duration?: number;
+  id: string;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+  story_id: string;
+  sequence: string;       // 序号，如 "1", "2"
+  title: string;
+  description: string;    // AI 生成的描述
+  details: string;        // 详细提示词
+  narration: string;      // 旁白文本
+  type: string;           // 拍摄类型，如 "水平横移拍摄"
+  transition: string;     // 转场效果
+  voice: string;          // 情感/语气，如 "紧张"
+  status: ShotStatus;
+  image_url: string;
+  bgm: string;
 }
 
+/**
+ * 更新分镜请求体（PATCH /v1/stories/{id}/shots/{shot_id}）
+ */
 export interface UpdateShotRequest {
-  shot: Partial<Pick<Shot, 'prompt' | 'narration_content'>>;
+  shot: Partial<Pick<Shot, 'details' | 'narration' | 'title' | 'description' | 'type' | 'transition' | 'voice'>>;
 }
 
-export interface OperationMetadata {
-  "@type"?: string;
-  verb?: string;
+/**
+ * 重新生成分镜请求体（POST /v1/stories/{id}/shots/{shot_id}/regenerate）
+ */
+export interface RegenerateShotRequest {
+  details?: string;
+  asset_type?: "ASSET_IMAGE" | "ASSET_VIDEO" | "ASSET_AUDIO";
+}
+
+/**
+ * 操作创建响应（POST 创建任务时返回）
+ */
+export interface OperationCreatedResponse {
+  operation_name: string;   // 格式: "operations/{uuid}"
+  state: OperationStatus;
   create_time?: string;
-  progress_percent: number;
-  state?: GenerationState; // Often included in metadata for quick access
 }
 
+/**
+ * 操作实体（GET /v1/operations/{id} 返回格式）
+ */
+export interface Operation {
+  id: string;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+  story_id: string;
+  shot_id: string;          // "00000000-0000-0000-0000-000000000000" 表示非分镜操作
+  type: OperationType;
+  payload: Record<string, any>;
+  status: OperationStatus;
+  retries: number;
+  error_msg: string;
+  worker: string;
+  started_at: string;
+  finished_at: string;
+}
+
+/**
+ * API 错误响应
+ */
 export interface ApiError {
   code: number;
   message: string;
   details?: any[];
 }
 
-export interface Operation {
-  name: string; // Operation ID e.g. "operations/..."
-  done: boolean;
-  metadata?: OperationMetadata;
-  response?: any;
-  error?: ApiError;
-}
-
+/**
+ * 故事列表响应
+ */
 export interface ListStoriesResponse {
-  stories: Story[];
+  items: Story[];
   next_page_token?: string;
 }
 
+/**
+ * 分镜列表响应
+ */
 export interface ListShotsResponse {
   shots: Shot[];
 }
-
-// WebSocket Message Types
-
-export interface SubscribeMessage {
-  action: "SUBSCRIBE";
-  topic: string;
-}
-
-export interface OperationProgressPayload {
-  operation_name: string;
-  state: GenerationState;
-  progress_percent: number;
-  message?: string;
-}
-
-export interface OperationDonePayload {
-  operation_name: string;
-  state: GenerationState;
-  progress_percent: number;
-  result_resource_name?: string;
-  error?: ApiError;
-}
-
-export type WebSocketMessage =
-  | { type: "OPERATION_PROGRESS"; timestamp: string; payload: OperationProgressPayload }
-  | { type: "OPERATION_DONE"; timestamp: string; payload: OperationDonePayload };

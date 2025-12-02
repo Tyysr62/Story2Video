@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -18,106 +18,84 @@ import {
   SelectDragIndicator,
   SelectItem,
   VStack,
+  HStack,
   Text,
   Spinner,
   ChevronDownIcon,
 } from "@story2video/ui";
 import {
-  useSocket,
-  GenerationState,
   StoryStyle,
-  useSdk,
+  useCreateStory,
+  useOperationQuery,
+  extractOperationId,
 } from "@story2video/core";
 
 const Create = () => {
   // 用户输入的脚本文本（将作为创建故事的脚本内容 script_content）
   const [storyText, setStoryText] = useState("");
-  // 风格（与后端枚举保持一致：STYLE_MOVIE / STYLE_ANIME / STYLE_REALISTIC）
-  const [style, setStyle] = useState<StoryStyle>(StoryStyle.STYLE_MOVIE);
-  // 提交中加载态
-  const [loading, setLoading] = useState(false);
-  // Operation ID（任务 ID），用于 WebSocket 订阅进度
+  // 风格（与后端枚举保持一致：movie / anime / realistic）
+  const [style, setStyle] = useState<StoryStyle>(StoryStyle.MOVIE);
+  // Operation ID（任务 ID），用于轮询进度
   const [operationId, setOperationId] = useState<string | null>(null);
-  // 实时进度（百分比）
-  const [progress, setProgress] = useState<number>(0);
-  // 任务状态（运行中/成功/失败等）
-  const [status, setStatus] = useState<GenerationState | null>(null);
-  // 结果资源名（成功时可能返回，如 stories/{id} 或视频 URL）
-  const [resultName, setResultName] = useState<string | null>(null);
   // 错误信息
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const navigate = useNavigate();
-  // 使用统一封装的 HTTP 客户端与 WebSocket 管理器
-  const sdk = useSdk();
-  const { socket } = useSocket();
 
-  // 当拿到 Operation ID 后，通过 WebSocket 订阅任务进度与完成状态
+  // 创建故事 mutation
+  const createStoryMutation = useCreateStory();
+
+  // 使用 TanStack Query 轮询操作进度（5秒间隔）
+  const operationQuery = useOperationQuery(operationId, {
+    onSuccess: (data) => {
+      // 成功时跳转到分镜页面
+      if (data.status === "succeeded") {
+        navigate(`/storyboard?storyId=${data.story_id}`);
+      }
+    },
+  });
+
+  // 监听操作失败
   useEffect(() => {
-    if (!operationId || !socket) return;
+    if (operationQuery.isFailed && operationQuery.errorMessage) {
+      setErrorMessage(operationQuery.errorMessage);
+    }
+  }, [operationQuery.isFailed, operationQuery.errorMessage]);
 
-    const unsubscribe = socket.subscribe(operationId, (payload) => {
-      // 更新进度与状态
-      setProgress(payload.progress_percent);
-      setStatus(payload.state);
-
-      // 若失败，可能携带 error.message（注意可选字段判空）
-      if ("error" in payload && payload.error) {
-        setErrorMessage(("error" in payload && (payload as any).error?.message) || "生成失败");
-      }
-
-      // 若成功，保存结果资源名并跳转
-      if ("result_resource_name" in payload && payload.result_resource_name) {
-        setResultName(payload.result_resource_name || null);
-      }
-      if (payload.state === GenerationState.STATE_SUCCEEDED) {
-        navigate("/storyboard");
-      }
-    });
-
-    // 组件卸载或 Operation 变化时取消订阅
-    return () => {
-      unsubscribe();
-    };
-  }, [operationId, socket, navigate]);
-
-  // 点击创建故事：调用 REST API（POST /v1/stories），并基于返回的 Operation 通过 WebSocket 订阅进度
+  // 点击创建故事
   const handleGenerate = async () => {
     setErrorMessage(null);
-    // 1) 基础校验：脚本文本不能为空
+    setOperationId(null);
+
+    // 基础校验：脚本文本不能为空
     if (!storyText.trim()) {
       setErrorMessage("Please enter story text.");
       return;
     }
-    setLoading(true);
+
     try {
-      // Check if SDK is available
-      if (!sdk || !sdk.stories) {
-        throw new Error("API 服务未初始化");
-      }
-      // 2) 组装请求体（根据接口文档）
-      // - display_name 这里演示用脚本文本前 20 个字符，实际可让用户单独输入
-      const body = {
-        story: {
-          display_name: storyText.slice(0, 20) || "Untitled",
-          script_content: storyText,
-          style, // 与后端枚举保持一致：STYLE_MOVIE / STYLE_ANIME / STYLE_REALISTIC
-        },
-      };
-      // 3) 发送创建故事请求，服务端应立即返回 Operation（包含任务 ID）
-      const op = await sdk.stories.create(body);
-      if (!op?.name) {
+      // 组装请求体（根据接口文档，直接发送而非包裹在 story 对象中）
+      const result = await createStoryMutation.mutateAsync({
+        display_name: storyText.slice(0, 20) || "Untitled",
+        script_content: storyText,
+        style,
+      });
+
+      if (!result?.operation_name) {
         throw new Error("未返回任务 ID");
       }
-      // 记录 Operation ID，稍后通过 WebSocket 订阅进度
-      setOperationId(op.name);
+
+      // 提取操作 ID 并开始轮询
+      const opId = extractOperationId(result.operation_name);
+      setOperationId(opId);
     } catch (error: any) {
       console.error("Create story error:", error);
       const msg = error?.message || "创建故事失败，请检查后端服务是否运行。";
       setErrorMessage(msg);
-    } finally {
-      setLoading(false);
     }
   };
+
+  const isLoading = createStoryMutation.isPending || (operationQuery.isLoading && !!operationId);
+  const isPolling = !!operationId && !operationQuery.isComplete;
 
   return (
     <Box
@@ -166,9 +144,9 @@ const Create = () => {
                 <SelectDragIndicatorWrapper>
                   <SelectDragIndicator />
                 </SelectDragIndicatorWrapper>
-                <SelectItem label="Movie" value="STYLE_MOVIE" />
-                <SelectItem label="Animation" value="STYLE_ANIME" />
-                <SelectItem label="Realistic" value="STYLE_REALISTIC" />
+                <SelectItem label="Movie" value="movie" />
+                <SelectItem label="Animation" value="anime" />
+                <SelectItem label="Realistic" value="realistic" />
               </SelectContent>
             </SelectPortal>
           </Select>
@@ -178,13 +156,13 @@ const Create = () => {
           size="xl"
           variant="solid"
           action="primary"
-          isDisabled={loading}
+          isDisabled={isLoading || isPolling}
           onPress={handleGenerate}
           borderRadius="$full"
         >
-          {loading && <Spinner color="$white" mr="$2" />}
+          {(isLoading || isPolling) && <Spinner color="$white" mr="$2" />}
           <ButtonText>
-            {loading ? "Generating..." : "Generate Story"}
+            {isPolling ? "Generating..." : isLoading ? "Submitting..." : "Generate Story"}
           </ButtonText>
         </Button>
         
@@ -201,16 +179,37 @@ const Create = () => {
           </Box>
         )}
         
-        {/* 任务进度与状态（示例展示） */}
-        {operationId && (
-          <VStack space="xs" mt="$4">
-            {/* 显示当前订阅的任务 ID */}
-            <Text>Operation: {operationId}</Text>
-            {/* 显示实时进度与状态 */}
-            <Text>进度：{progress}%</Text>
-            <Text>状态：{status ?? "N/A"}</Text>
-            {/* 如果服务端返回了结果资源名，则显示 */}
-            {resultName && <Text>结果：{resultName}</Text>}
+        {/* 任务进度与状态 */}
+        {operationId && operationQuery.data && (
+          <VStack space="sm" mt="$4" p="$4" bg="$backgroundLight50" borderRadius="$lg">
+            <Text fontWeight="$bold" size="sm">任务状态</Text>
+            <HStack space="sm" alignItems="center">
+              <Box
+                w="$3"
+                h="$3"
+                borderRadius="$full"
+                bg={
+                  operationQuery.data.status === "succeeded" ? "$success500" :
+                  operationQuery.data.status === "failed" ? "$error500" :
+                  operationQuery.data.status === "running" ? "$info500" :
+                  "$warning500"
+                }
+              />
+              <Text size="sm">
+                {operationQuery.data.status === "queued" && "排队中..."}
+                {operationQuery.data.status === "running" && "生成中..."}
+                {operationQuery.data.status === "succeeded" && "已完成"}
+                {operationQuery.data.status === "failed" && "失败"}
+              </Text>
+            </HStack>
+            <Text size="xs" color="$textLight400">
+              任务 ID: {operationId.slice(0, 8)}...
+            </Text>
+            {isPolling && (
+              <Text size="xs" color="$textLight400">
+                每 5 秒自动刷新状态
+              </Text>
+            )}
           </VStack>
         )}
       </VStack>
