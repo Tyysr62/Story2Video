@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FlatList } from "react-native";
+import { router } from "expo-router";
 import {
   Box,
   Heading,
@@ -13,8 +14,8 @@ import {
   Pressable,
 } from "@story2video/ui";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
-import { mockOperations, OperationStatus } from "@story2video/core";
-import type { Operation, OperationType } from "@story2video/core";
+import { mockOperations, OperationStatus, OperationType } from "@story2video/core";
+import type { Operation } from "@story2video/core";
 
 export default function OperationsScreen() {
   const [operations] = useState<Operation[]>(mockOperations);
@@ -23,6 +24,23 @@ export default function OperationsScreen() {
   const filteredOperations = filter === "all" 
     ? operations 
     : operations.filter(op => op.status === filter);
+
+  // 点击已完成的任务跳转到对应页面
+  const handleOperationClick = (op: Operation) => {
+    if (op.status !== OperationStatus.SUCCEEDED) return;
+    
+    switch (op.type) {
+      case OperationType.STORY_CREATE:
+        router.push(`/storyboard?storyId=${op.story_id}`);
+        break;
+      case OperationType.VIDEO_RENDER:
+        router.push(`/preview?storyId=${op.story_id}`);
+        break;
+      case OperationType.SHOT_REGEN:
+        router.push(`/shot/${op.shot_id}?storyId=${op.story_id}`);
+        break;
+    }
+  };
 
   const getStatusBadge = (status: OperationStatus) => {
     switch (status) {
@@ -137,20 +155,25 @@ export default function OperationsScreen() {
             renderItem={({ item: op }) => {
               const statusInfo = getStatusBadge(op.status);
               const typeIcon = getTypeIcon(op.type);
+              const isClickable = op.status === OperationStatus.SUCCEEDED;
 
               return (
-                <Box
-                  bg="$white"
-                  borderRadius="$lg"
-                  borderColor="$borderLight200"
-                  borderWidth={1}
-                  p="$3"
-                  shadowColor="$black"
-                  shadowOffset={{ width: 0, height: 1 }}
-                  shadowOpacity={0.05}
-                  shadowRadius={2}
-                  elevation={1}
+                <Pressable
+                  onPress={() => handleOperationClick(op)}
+                  disabled={!isClickable}
                 >
+                  <Box
+                    bg="$white"
+                    borderRadius="$lg"
+                    borderColor={isClickable ? "$primary200" : "$borderLight200"}
+                    borderWidth={1}
+                    p="$3"
+                    shadowColor="$black"
+                    shadowOffset={{ width: 0, height: 1 }}
+                    shadowOpacity={0.05}
+                    shadowRadius={2}
+                    elevation={1}
+                  >
                   <VStack space="sm">
                     {/* Header Row */}
                     <HStack justifyContent="space-between" alignItems="center">
@@ -223,7 +246,8 @@ export default function OperationsScreen() {
                       )}
                     </HStack>
                   </VStack>
-                </Box>
+                  </Box>
+                </Pressable>
               );
             }}
           />

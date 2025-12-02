@@ -21,7 +21,7 @@ export const mockStories: Story[] = [
     status: StoryStatus.READY,
     timeline: null,
     cover_url: "https://placehold.co/600x400/png?text=沙漠秘境",
-    video_url: "/static/aff9edc-cdad-4c26-8c3b-8fb44f8a6898_FINAL_MOVIE.mp4",
+    video_url: "https://www.w3schools.com/html/mov_bbb.mp4",
   },
   {
     id: "cf000374-bdf4-403f-8112-d57fb5617cb1",
@@ -49,7 +49,7 @@ export const mockStories: Story[] = [
     status: StoryStatus.READY,
     timeline: null,
     cover_url: "https://placehold.co/600x400/png?text=温馨短片",
-    video_url: "/static/3d38342b-c4d2-4171-ab87-bda85a36136e_FINAL_MOVIE.mp4",
+    video_url: "https://www.w3schools.com/html/mov_bbb.mp4",
   },
   {
     id: "4fbb04b3-db6d-4928-aa2d-2514a2469a82",
@@ -63,7 +63,7 @@ export const mockStories: Story[] = [
     status: StoryStatus.READY,
     timeline: null,
     cover_url: "https://placehold.co/600x400/png?text=雪山奇缘",
-    video_url: "/static/4fbb04b3-db6d-4928-aa2d-2514a2469a82_FINAL_MOVIE.mp4",
+    video_url: "https://www.w3schools.com/html/mov_bbb.mp4",
   },
   {
     id: "95134d9c-8ca0-407b-b0f7-a4df9bcfe69c",

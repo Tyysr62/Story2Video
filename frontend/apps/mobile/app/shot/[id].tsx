@@ -39,6 +39,9 @@ import {
   useOperationQuery,
   extractOperationId,
   ShotStatus,
+  getTransitionOptions,
+  getTransitionPlaceholder,
+  getTransitionLabel,
 } from "@story2video/core";
 
 export default function ShotDetailScreen() {
@@ -68,8 +71,8 @@ export default function ShotDetailScreen() {
           placement: "top",
           render: ({ id }) => (
             <Toast action="success" variant="accent" nativeID={id}>
-              <ToastTitle>Success</ToastTitle>
-              <ToastDescription>Image regenerated successfully.</ToastDescription>
+              <ToastTitle>成功</ToastTitle>
+              <ToastDescription>图像重新生成完成。</ToastDescription>
             </Toast>
           ),
         });
@@ -86,7 +89,7 @@ export default function ShotDetailScreen() {
         placement: "top",
         render: ({ id }) => (
           <Toast action="error" variant="accent" nativeID={id}>
-            <ToastTitle>Error</ToastTitle>
+            <ToastTitle>错误</ToastTitle>
             <ToastDescription>{regenerateOperationQuery.errorMessage}</ToastDescription>
           </Toast>
         ),
@@ -118,8 +121,8 @@ export default function ShotDetailScreen() {
         placement: "top",
         render: ({ id }) => (
           <Toast action="error" variant="accent" nativeID={id}>
-            <ToastTitle>Error</ToastTitle>
-            <ToastDescription>{err?.message || "Failed to generate image."}</ToastDescription>
+            <ToastTitle>错误</ToastTitle>
+            <ToastDescription>{err?.message || "生成图像失败"}</ToastDescription>
           </Toast>
         ),
       });
@@ -145,8 +148,8 @@ export default function ShotDetailScreen() {
         placement: "top",
         render: ({ id }) => (
           <Toast action="success" variant="accent" nativeID={id}>
-            <ToastTitle>Success</ToastTitle>
-            <ToastDescription>Shot updated successfully.</ToastDescription>
+            <ToastTitle>成功</ToastTitle>
+            <ToastDescription>分镜已保存。</ToastDescription>
           </Toast>
         ),
       });
@@ -155,8 +158,8 @@ export default function ShotDetailScreen() {
         placement: "top",
         render: ({ id }) => (
           <Toast action="error" variant="accent" nativeID={id}>
-            <ToastTitle>Error</ToastTitle>
-            <ToastDescription>{err?.message || "Failed to save shot."}</ToastDescription>
+            <ToastTitle>错误</ToastTitle>
+            <ToastDescription>{err?.message || "保存分镜失败"}</ToastDescription>
           </Toast>
         ),
       });
@@ -169,9 +172,9 @@ export default function ShotDetailScreen() {
 
   const getStatusText = (s: ShotStatus | string) => {
     switch (s) {
-      case ShotStatus.DONE: return "Done";
-      case ShotStatus.GENERATING: return "Generating";
-      case ShotStatus.FAILED: return "Failed";
+      case ShotStatus.DONE: return "已完成";
+      case ShotStatus.GENERATING: return "生成中";
+      case ShotStatus.FAILED: return "失败";
       default: return String(s);
     }
   };
@@ -190,7 +193,7 @@ export default function ShotDetailScreen() {
     return (
       <Box flex={1} bg="$backgroundLight0" justifyContent="center" alignItems="center">
         <Spinner size="large" />
-        <Text mt="$4">Loading shot...</Text>
+        <Text mt="$4">正在加载分镜...</Text>
       </Box>
     );
   }
@@ -199,9 +202,9 @@ export default function ShotDetailScreen() {
   if (error) {
     return (
       <Box flex={1} bg="$backgroundLight0" justifyContent="center" alignItems="center" p="$4">
-        <Text color="$error500" mb="$4">Failed to load shot</Text>
+        <Text color="$error500" mb="$4">加载分镜失败</Text>
         <Button onPress={() => refetch()}>
-          <ButtonText>Retry</ButtonText>
+          <ButtonText>重试</ButtonText>
         </Button>
       </Box>
     );
@@ -212,7 +215,7 @@ export default function ShotDetailScreen() {
       <ScrollView contentContainerStyle={{ padding: 16 }}>
         <VStack space="xl">
           <Box>
-            <Heading size="xl">Shot {shot?.sequence || id}</Heading>
+            <Heading size="xl">分镜 {shot?.sequence || id}</Heading>
             <Box alignSelf="flex-start" mt="$2">
               <Badge
                 size="md"
@@ -238,7 +241,7 @@ export default function ShotDetailScreen() {
           >
             <Image
               source={{ uri: imageUrl }}
-              alt="Shot Preview"
+              alt="分镜预览"
               w="100%"
               h="100%"
               resizeMode="cover"
@@ -254,7 +257,7 @@ export default function ShotDetailScreen() {
               >
                 <Spinner size="large" color="$white" />
                 <Text color="$white" mt="$2">
-                  Generating...
+                  生成中...
                 </Text>
               </Box>
             )}
@@ -269,7 +272,7 @@ export default function ShotDetailScreen() {
               isDisabled={isRegenerating}
             >
               <ButtonText>
-                {isRegenerating ? "Processing..." : "Regenerate"}
+                {isRegenerating ? "处理中..." : "重新生成"}
               </ButtonText>
             </Button>
             <Button
@@ -280,7 +283,7 @@ export default function ShotDetailScreen() {
               isDisabled={updateShotMutation.isPending}
             >
               {updateShotMutation.isPending && <Spinner color="$primary500" mr="$2" />}
-              <ButtonText>Save</ButtonText>
+              <ButtonText>保存</ButtonText>
             </Button>
           </HStack>
 
@@ -293,27 +296,25 @@ export default function ShotDetailScreen() {
           {/* Form Controls */}
           <VStack space="lg" mt="$2">
             <VStack space="sm">
-              <Text fontWeight="$bold">Prompt</Text>
+              <Text fontWeight="$bold">提示词</Text>
               <Textarea size="md" w="100%">
                 <TextareaInput
-                  placeholder="Describe the scene..."
+                  placeholder="描述场景..."
                   value={prompt}
                   onChangeText={setPrompt}
                 />
               </Textarea>
               <Text size="xs" color="$textLight400">
-                Modify the prompt to regenerate the image.
+                调整提示词以重新生成图像。
               </Text>
             </VStack>
 
             <VStack space="sm">
-              <Text fontWeight="$bold">Transition Effect</Text>
-              <Select selectedValue={transition} onValueChange={setTransition}>
+              <Text fontWeight="$bold">转换效果</Text>
+              <Select selectedValue={transition} initialLabel={getTransitionLabel(transition)} onValueChange={setTransition}>
                 <SelectTrigger variant="outline" size="md">
-                  <SelectInput placeholder="Select effect" />
-                  <SelectIcon mr="$3">
-                    <Icon as={ChevronDownIcon} />
-                  </SelectIcon>
+                  <SelectInput placeholder={getTransitionPlaceholder()} />
+                  <SelectIcon mr="$3" />
                 </SelectTrigger>
                 <SelectPortal>
                   <SelectBackdrop />
@@ -321,19 +322,23 @@ export default function ShotDetailScreen() {
                     <SelectDragIndicatorWrapper>
                       <SelectDragIndicator />
                     </SelectDragIndicatorWrapper>
-                    <SelectItem label="Ken Burns" value="ken_burns" />
-                    <SelectItem label="Crossfade" value="crossfade" />
-                    <SelectItem label="Volume Mix" value="volume_mix" />
+                    {getTransitionOptions().map((option) => (
+                      <SelectItem
+                        key={option.value}
+                        label={option.label}
+                        value={option.value}
+                      />
+                    ))}
                   </SelectContent>
                 </SelectPortal>
               </Select>
             </VStack>
 
             <VStack space="sm">
-              <Text fontWeight="$bold">Narration</Text>
+              <Text fontWeight="$bold">旁白文本</Text>
               <Textarea size="md" w="100%">
                 <TextareaInput
-                  placeholder="Enter voiceover text..."
+                  placeholder="输入旁白内容..."
                   value={narration}
                   onChangeText={setNarration}
                 />

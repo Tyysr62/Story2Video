@@ -16,6 +16,10 @@
     "./tauri": {
       "types": "./src/api/clients/tauri-client.ts",
       "import": "./src/api/clients/tauri-client.ts"
+    },
+    "./mock": {
+      "types": "./src/api/clients/mock-client.ts",
+      "import": "./src/api/clients/mock-client.ts"
     }
   },
   "peerDependencies": {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ScrollView, Dimensions } from "react-native";
+import { ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import {
@@ -18,6 +18,9 @@ import {
   Toast,
   ToastTitle,
   ToastDescription,
+  Pressable,
+  Icon,
+  ArrowLeftIcon,
 } from "@story2video/ui";
 import {
   useShots,
@@ -26,9 +29,6 @@ import {
   extractOperationId,
   ShotStatus,
 } from "@story2video/core";
-
-const SCREEN_WIDTH = Dimensions.get("window").width;
-const CARD_WIDTH = SCREEN_WIDTH * 0.8;
 
 export default function StoryboardScreen() {
   const { storyId = "" } = useLocalSearchParams<{ storyId?: string }>();
@@ -52,12 +52,12 @@ export default function StoryboardScreen() {
           placement: "top",
           render: ({ id }) => (
             <Toast action="success" variant="accent" nativeID={id}>
-              <ToastTitle>Success</ToastTitle>
-              <ToastDescription>Video synthesis complete!</ToastDescription>
+              <ToastTitle>成功</ToastTitle>
+              <ToastDescription>视频合成完成！</ToastDescription>
             </Toast>
           ),
         });
-        router.push("/preview");
+        router.push(`/preview?storyId=${storyId}`);
       }
     },
   });
@@ -69,7 +69,7 @@ export default function StoryboardScreen() {
         placement: "top",
         render: ({ id }) => (
           <Toast action="error" variant="accent" nativeID={id}>
-            <ToastTitle>Error</ToastTitle>
+            <ToastTitle>错误</ToastTitle>
             <ToastDescription>{compileOperationQuery.errorMessage}</ToastDescription>
           </Toast>
         ),
@@ -78,7 +78,7 @@ export default function StoryboardScreen() {
   }, [compileOperationQuery.isFailed, compileOperationQuery.errorMessage, toast]);
 
   const handleDetailClick = (id: string) => {
-    router.push(`/shot/${id}`);
+    router.push(`/shot/${id}?storyId=${storyId}`);
   };
 
   const handleGenerateVideo = async () => {
@@ -87,8 +87,8 @@ export default function StoryboardScreen() {
         placement: "top",
         render: ({ id }) => (
           <Toast action="error" variant="accent" nativeID={id}>
-            <ToastTitle>Error</ToastTitle>
-            <ToastDescription>Story ID is required.</ToastDescription>
+            <ToastTitle>错误</ToastTitle>
+            <ToastDescription>请提供故事 ID。</ToastDescription>
           </Toast>
         ),
       });
@@ -106,8 +106,8 @@ export default function StoryboardScreen() {
         placement: "top",
         render: ({ id }) => (
           <Toast action="error" variant="accent" nativeID={id}>
-            <ToastTitle>Error</ToastTitle>
-            <ToastDescription>{err?.message || "Video generation failed."}</ToastDescription>
+            <ToastTitle>错误</ToastTitle>
+            <ToastDescription>{err?.message || "视频生成失败"}</ToastDescription>
           </Toast>
         ),
       });
@@ -132,11 +132,11 @@ export default function StoryboardScreen() {
   const getStatusText = (status: ShotStatus | string) => {
     switch (status) {
       case ShotStatus.DONE:
-        return "Done";
+        return "已完成";
       case ShotStatus.GENERATING:
-        return "Generating";
+        return "生成中";
       case ShotStatus.FAILED:
-        return "Failed";
+        return "失败";
       default:
         return status;
     }
@@ -149,7 +149,7 @@ export default function StoryboardScreen() {
     return (
       <Box flex={1} bg="$backgroundLight0" justifyContent="center" alignItems="center">
         <Spinner size="large" />
-        <Text mt="$4">Loading shots...</Text>
+        <Text mt="$4">正在加载分镜...</Text>
       </Box>
     );
   }
@@ -158,9 +158,9 @@ export default function StoryboardScreen() {
   if (error) {
     return (
       <Box flex={1} bg="$backgroundLight0" justifyContent="center" alignItems="center" p="$4">
-        <Text color="$error500" mb="$4">Failed to load shots</Text>
+        <Text color="$error500" mb="$4">加载分镜失败</Text>
         <Button onPress={() => refetch()}>
-          <ButtonText>Retry</ButtonText>
+          <ButtonText>重试</ButtonText>
         </Button>
       </Box>
     );
@@ -170,77 +170,76 @@ export default function StoryboardScreen() {
     <Box flex={1} bg="$backgroundLight0">
       <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
         <VStack flex={1} space="md" p="$4">
-          <Box>
-            <Heading size="2xl">Storyboard</Heading>
-            <Text color="$textLight500" size="sm">
-              Swipe to review shots.
-            </Text>
-          </Box>
+          {/* Header with back button */}
+          <HStack alignItems="center" space="md">
+            <Pressable onPress={() => router.back()}>
+              <Icon as={ArrowLeftIcon} size="xl" color="$textLight800" />
+            </Pressable>
+            <VStack flex={1}>
+              <Heading size="xl">分镜编辑</Heading>
+              <Text color="$textLight500" size="sm">
+                上下滑动查看分镜
+              </Text>
+            </VStack>
+          </HStack>
 
-          <Box flex={1} justifyContent="center">
+          <Box flex={1}>
             {shots.length === 0 ? (
               <Box alignItems="center" py="$8">
-                <Text color="$textLight400">No shots available</Text>
+                <Text color="$textLight400">暂无分镜</Text>
               </Box>
             ) : (
               <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
+                showsVerticalScrollIndicator={false}
                 contentContainerStyle={{
-                  paddingHorizontal: 0,
-                  alignItems: "center",
+                  paddingVertical: 8,
                 }}
-                decelerationRate="fast"
-                snapToInterval={CARD_WIDTH + 20}
-                snapToAlignment="center"
               >
-                {shots.map((shot, index) => (
-                  <Box
-                    key={shot.id}
-                    width={CARD_WIDTH}
-                    mr={index === shots.length - 1 ? 0 : "$5"}
-                    bg="$white"
-                    borderRadius="$xl"
-                    borderColor="$borderLight200"
-                    borderWidth={1}
-                    overflow="hidden"
-                  >
-                    <Image
-                      source={{ uri: shot.image_url || `https://placehold.co/600x400/png?text=Shot+${shot.sequence}` }}
-                      alt={`Shot ${shot.sequence}`}
-                      h={200}
-                      w="100%"
-                      resizeMode="cover"
-                    />
-                    <VStack space="sm" p="$4">
-                      <VStack>
-                        <Heading size="md" isTruncated>
-                          Shot {shot.sequence}: {shot.details?.slice(0, 20) || "Untitled"}
-                        </Heading>
-                        <HStack mt="$1">
+                <VStack space="md">
+                  {shots.map((shot) => (
+                    <Pressable
+                      key={shot.id}
+                      onPress={() => handleDetailClick(shot.id)}
+                    >
+                      <HStack
+                        bg="$white"
+                        borderRadius="$lg"
+                        borderColor="$borderLight200"
+                        borderWidth={1}
+                        overflow="hidden"
+                        alignItems="center"
+                      >
+                        <Image
+                          source={{ uri: shot.image_url || `https://placehold.co/600x400/png?text=Shot+${shot.sequence}` }}
+                          alt={`Shot ${shot.sequence}`}
+                          h={100}
+                          w={120}
+                          resizeMode="cover"
+                        />
+                        <VStack flex={1} space="xs" p="$3">
+                          <Heading size="sm" isTruncated>
+                            分镜 {shot.sequence}
+                          </Heading>
+                          <Text size="xs" color="$textLight500" numberOfLines={2}>
+                            {shot.details || "未命名"}
+                          </Text>
                           <Badge
-                            size="md"
+                            size="sm"
                             variant="solid"
                             borderRadius="$sm"
                             action={getBadgeAction(shot.status)}
+                            alignSelf="flex-start"
                           >
                             <BadgeText>{getStatusText(shot.status)}</BadgeText>
                           </Badge>
-                        </HStack>
-                      </VStack>
-
-                      <Button
-                        size="md"
-                        variant="outline"
-                        action="secondary"
-                        onPress={() => handleDetailClick(shot.id)}
-                        mt="$2"
-                      >
-                        <ButtonText>Details</ButtonText>
-                      </Button>
-                    </VStack>
-                  </Box>
-                ))}
+                        </VStack>
+                        <Box pr="$3">
+                          <Icon as={ArrowLeftIcon} size="md" color="$textLight400" style={{ transform: [{ rotate: '180deg' }] }} />
+                        </Box>
+                      </HStack>
+                    </Pressable>
+                  ))}
+                </VStack>
               </ScrollView>
             )}
           </Box>
@@ -254,7 +253,7 @@ export default function StoryboardScreen() {
             >
               {isGenerating && <Spinner mr="$2" color="$white" />}
               <ButtonText>
-                {isGenerating ? "Synthesizing..." : "Generate Video"}
+                {isGenerating ? "合成中..." : "生成视频"}
               </ButtonText>
             </Button>
             {compileOperationId && !compileOperationQuery.isComplete && (

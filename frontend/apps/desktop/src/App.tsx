@@ -16,7 +16,7 @@ import {
   Icon,
   Heading,
 } from "@story2video/ui";
-import { Home, Layers, Library, Video, ListTodo } from "lucide-react";
+import { Home, Library, ListTodo } from "lucide-react";
 import Create from "./pages/Create";
 import Storyboard from "./pages/Storyboard";
 import ShotDetail from "./pages/ShotDetail";
@@ -37,10 +37,14 @@ const SidebarItem = ({
   const location = useLocation();
 
   // Determine if the item is active.
-  // Special case for Storyboard to be active when viewing a shot details page
+  // Tasks should be active when viewing storyboard, shot details, or preview pages
   const isActive =
     location.pathname === to ||
-    (to === "/storyboard" && location.pathname.startsWith("/shot"));
+    (to === "/operations" && (
+      location.pathname.startsWith("/storyboard") ||
+      location.pathname.startsWith("/shot") ||
+      location.pathname.startsWith("/preview")
+    ));
 
   return (
     <Link to={to} style={{ textDecoration: "none" }}>
@@ -104,12 +108,11 @@ const Layout = () => {
               mb="$2"
               px="$2"
             >
-              MENU
+              菜单
             </Text>
-            <SidebarItem to="/" icon={Home} label="Create Story" />
-            <SidebarItem to="/storyboard" icon={Layers} label="Storyboard" />
-            <SidebarItem to="/operations" icon={ListTodo} label="Tasks" />
-            <SidebarItem to="/assets" icon={Library} label="Assets Library" />
+            <SidebarItem to="/" icon={Home} label="创建故事" />
+            <SidebarItem to="/operations" icon={ListTodo} label="任务列表" />
+            <SidebarItem to="/assets" icon={Library} label="素材库" />
           </VStack>
         </VStack>
       </Box>

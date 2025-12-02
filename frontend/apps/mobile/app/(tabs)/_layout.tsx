@@ -32,15 +32,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="storyboard"
-        options={{
-          title: "Storyboard",
-          tabBarIcon: ({ color }) => (
-            <TabBarIcon name="th-large" color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="operations"
         options={{
           title: "Tasks",

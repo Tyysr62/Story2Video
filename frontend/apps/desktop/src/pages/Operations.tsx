@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Heading,
@@ -11,18 +12,37 @@ import {
   Spinner,
   Button,
   ButtonText,
+  Pressable,
 } from "@story2video/ui";
 import { Clock, CheckCircle, XCircle, Loader, Film, Image, Video } from "lucide-react";
-import { mockOperations, OperationStatus } from "@story2video/core";
-import type { Operation, OperationType } from "@story2video/core";
+import { mockOperations, OperationStatus, OperationType } from "@story2video/core";
+import type { Operation } from "@story2video/core";
 
 const Operations = () => {
+  const navigate = useNavigate();
   const [operations] = useState<Operation[]>(mockOperations);
   const [filter, setFilter] = useState<OperationStatus | "all">("all");
 
   const filteredOperations = filter === "all" 
     ? operations 
     : operations.filter(op => op.status === filter);
+
+  // 点击已完成的任务跳转到对应页面
+  const handleOperationClick = (op: Operation) => {
+    if (op.status !== OperationStatus.SUCCEEDED) return;
+    
+    switch (op.type) {
+      case OperationType.STORY_CREATE:
+        navigate(`/storyboard?storyId=${op.story_id}`);
+        break;
+      case OperationType.VIDEO_RENDER:
+        navigate(`/preview?storyId=${op.story_id}`);
+        break;
+      case OperationType.SHOT_REGEN:
+        navigate(`/shot/${op.shot_id}?storyId=${op.story_id}`);
+        break;
+    }
+  };
 
   const getStatusBadge = (status: OperationStatus) => {
     switch (status) {
@@ -147,22 +167,27 @@ const Operations = () => {
                 const statusInfo = getStatusBadge(op.status);
                 const TypeIcon = getTypeIcon(op.type);
                 const StatusIcon = statusInfo.icon;
+                const isClickable = op.status === OperationStatus.SUCCEEDED;
 
                 return (
-                  <Box
+                  <Pressable
                     key={op.id}
-                    bg="$white"
-                    borderRadius="$xl"
-                    borderColor="$borderLight200"
-                    borderWidth={1}
-                    p="$4"
-                    shadowColor="$black"
-                    shadowOffset={{ width: 0, height: 2 }}
-                    shadowOpacity={0.08}
-                    shadowRadius={4}
-                    elevation={2}
-                    className="transition-all hover:shadow-lg"
+                    onPress={() => handleOperationClick(op)}
+                    disabled={!isClickable}
                   >
+                    <Box
+                      bg="$white"
+                      borderRadius="$xl"
+                      borderColor="$borderLight200"
+                      borderWidth={1}
+                      p="$4"
+                      shadowColor="$black"
+                      shadowOffset={{ width: 0, height: 2 }}
+                      shadowOpacity={0.08}
+                      shadowRadius={4}
+                      elevation={2}
+                      className={isClickable ? "transition-all hover:shadow-lg hover:bg-gray-50" : ""}
+                    >
                     <VStack space="sm">
                       {/* Header Row */}
                       <HStack justifyContent="space-between" alignItems="center">
@@ -243,12 +268,13 @@ const Operations = () => {
                         </HStack>
                         {op.worker && (
                           <Text size="xs" color="$textLight400" alignSelf="flex-end">
-                            Worker: {op.worker}
+                            执行节点: {op.worker}
                           </Text>
                         )}
                       </HStack>
                     </VStack>
                   </Box>
+                  </Pressable>
                 );
               })
             )}

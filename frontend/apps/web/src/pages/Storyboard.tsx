@@ -52,8 +52,8 @@ const Storyboard = () => {
           placement: "top",
           render: ({ id }) => (
             <Toast action="success" variant="accent" nativeID={id}>
-              <ToastTitle>Success</ToastTitle>
-              <ToastDescription>Video synthesis complete!</ToastDescription>
+              <ToastTitle>成功</ToastTitle>
+              <ToastDescription>视频合成完成！</ToastDescription>
             </Toast>
           ),
         });
@@ -69,7 +69,7 @@ const Storyboard = () => {
         placement: "top",
         render: ({ id }) => (
           <Toast action="error" variant="accent" nativeID={id}>
-            <ToastTitle>Error</ToastTitle>
+            <ToastTitle>错误</ToastTitle>
             <ToastDescription>{compileOperationQuery.errorMessage}</ToastDescription>
           </Toast>
         ),
@@ -87,8 +87,8 @@ const Storyboard = () => {
         placement: "top",
         render: ({ id }) => (
           <Toast action="error" variant="accent" nativeID={id}>
-            <ToastTitle>Error</ToastTitle>
-            <ToastDescription>Story ID is required.</ToastDescription>
+            <ToastTitle>错误</ToastTitle>
+            <ToastDescription>请提供故事 ID。</ToastDescription>
           </Toast>
         ),
       });
@@ -106,8 +106,8 @@ const Storyboard = () => {
         placement: "top",
         render: ({ id }) => (
           <Toast action="error" variant="accent" nativeID={id}>
-            <ToastTitle>Error</ToastTitle>
-            <ToastDescription>{err?.message || "Video generation failed."}</ToastDescription>
+            <ToastTitle>错误</ToastTitle>
+            <ToastDescription>{err?.message || "视频生成失败"}</ToastDescription>
           </Toast>
         ),
       });
@@ -132,11 +132,11 @@ const Storyboard = () => {
   const getStatusText = (status: ShotStatus | string) => {
     switch (status) {
       case ShotStatus.DONE:
-        return "Done";
+        return "已完成";
       case ShotStatus.GENERATING:
-        return "Generating";
+        return "生成中";
       case ShotStatus.FAILED:
-        return "Failed";
+        return "失败";
       default:
         return status;
     }
@@ -149,7 +149,7 @@ const Storyboard = () => {
     return (
       <Box flex={1} bg="$backgroundLight0" justifyContent="center" alignItems="center">
         <Spinner size="large" />
-        <Text mt="$4">Loading shots...</Text>
+        <Text mt="$4">正在加载分镜...</Text>
       </Box>
     );
   }
@@ -158,9 +158,9 @@ const Storyboard = () => {
   if (error) {
     return (
       <Box flex={1} bg="$backgroundLight0" justifyContent="center" alignItems="center" p="$4">
-        <Text color="$error500" mb="$4">Failed to load shots</Text>
+        <Text color="$error500" mb="$4">加载分镜失败</Text>
         <Button onPress={() => refetch()}>
-          <ButtonText>Retry</ButtonText>
+          <ButtonText>重试</ButtonText>
         </Button>
       </Box>
     );
@@ -172,9 +172,9 @@ const Storyboard = () => {
       <Box flex={1} bg="$backgroundLight0" p="$4">
         <VStack space="md" flex={1}>
           <Box>
-            <Heading size="lg">Storyboard</Heading>
+            <Heading size="lg">分镜列表</Heading>
             <Text size="sm" color="$textLight500">
-              Review and edit your shots before generating the video.
+              在生成视频前检查并编辑每个分镜。
             </Text>
           </Box>
 
@@ -196,8 +196,12 @@ const Storyboard = () => {
                 >
                   <HStack>
                     <Image
-                      source={{ uri: shot.image_url || `https://placehold.co/600x400/png?text=Shot+${shot.sequence}` }}
-                      alt={`Shot ${shot.sequence}`}
+                      source={{
+                        uri:
+                          shot.image_url ||
+                          `https://placehold.co/600x400/png?text=${encodeURIComponent(`分镜 ${shot.sequence}`)}`,
+                      }}
+                      alt={`分镜 ${shot.sequence}`}
                       h={100}
                       w={120}
                       resizeMode="cover"
@@ -205,7 +209,7 @@ const Storyboard = () => {
                     <VStack flex={1} p="$3" justifyContent="space-between">
                       <VStack>
                         <Text fontWeight="$bold" size="sm" isTruncated>
-                          Shot {shot.sequence}: {shot.details?.slice(0, 30) || "Untitled"}
+                          分镜 {shot.sequence}: {shot.details?.slice(0, 30) || "未命名"}
                         </Text>
                         <Badge
                           size="sm"
@@ -225,7 +229,7 @@ const Storyboard = () => {
                         onPress={() => handleDetailClick(shot.id)}
                         alignSelf="flex-start"
                       >
-                        <ButtonText>Details</ButtonText>
+                        <ButtonText>查看详情</ButtonText>
                       </Button>
                     </VStack>
                   </HStack>
@@ -244,7 +248,7 @@ const Storyboard = () => {
             >
               {isGenerating && <Spinner mr="$2" color="$white" />}
               <ButtonText>
-                {isGenerating ? "Synthesizing..." : "Generate Video"}
+                {isGenerating ? "正在合成..." : "生成视频"}
               </ButtonText>
             </Button>
           </Box>
@@ -258,16 +262,16 @@ const Storyboard = () => {
     <Box flex={1} bg="$backgroundLight0" p="$4">
       <VStack space="md" flex={1}>
         <Box>
-          <Heading size="xl">Storyboard</Heading>
+          <Heading size="xl">分镜列表</Heading>
           <Text color="$textLight500">
-            Review and edit your shots before generating the video.
+            在生成视频前检查并编辑每个分镜。
           </Text>
         </Box>
 
         <Box flex={1} justifyContent="center">
           {shots.length === 0 ? (
             <Box alignItems="center" py="$8">
-              <Text color="$textLight400">No shots available</Text>
+              <Text color="$textLight400">暂无分镜</Text>
             </Box>
           ) : (
             <ScrollView
@@ -292,8 +296,12 @@ const Storyboard = () => {
                     elevation={2}
                   >
                     <Image
-                      source={{ uri: shot.image_url || `https://placehold.co/600x400/png?text=Shot+${shot.sequence}` }}
-                      alt={`Shot ${shot.sequence}`}
+                      source={{
+                        uri:
+                          shot.image_url ||
+                          `https://placehold.co/600x400/png?text=${encodeURIComponent(`分镜 ${shot.sequence}`)}`,
+                      }}
+                      alt={`分镜 ${shot.sequence}`}
                       h={180}
                       w="100%"
                       resizeMode="cover"
@@ -301,7 +309,7 @@ const Storyboard = () => {
                     <VStack space="sm" p="$4">
                       <VStack>
                         <Heading size="sm" isTruncated>
-                          Shot {shot.sequence}: {shot.details?.slice(0, 20) || "Untitled"}
+                          分镜 {shot.sequence}: {shot.details?.slice(0, 20) || "未命名"}
                         </Heading>
                         <HStack mt="$1">
                           <Badge
@@ -322,7 +330,7 @@ const Storyboard = () => {
                         onPress={() => handleDetailClick(shot.id)}
                         mt="$2"
                       >
-                        <ButtonText>Details</ButtonText>
+                        <ButtonText>查看详情</ButtonText>
                       </Button>
                     </VStack>
                   </Box>
@@ -343,7 +351,7 @@ const Storyboard = () => {
           >
             {isGenerating && <Spinner mr="$2" color="$white" />}
             <ButtonText>
-              {isGenerating ? "Synthesizing Video..." : "Generate Video"}
+              {isGenerating ? "正在合成视频..." : "生成视频"}
             </ButtonText>
           </Button>
           {compileOperationId && !compileOperationQuery.isComplete && (

@@ -1,18 +1,24 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
-import { ApiProvider, QueryProvider } from "@story2video/core";
+import { ApiProvider, QueryProvider, IHttpClient } from "@story2video/core";
 import { createTauriHttpClient } from "@story2video/core/tauri";
+import { createMockHttpClient } from "@story2video/core/mock";
 
 const apiBaseURL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
+const useMock = import.meta.env.VITE_USE_MOCK === "true";
+
 const getToken = () =>
   (typeof localStorage !== "undefined" && localStorage.getItem("auth_token")) ||
   "";
 
-const client = createTauriHttpClient({
-  baseURL: apiBaseURL,
-  getAuthToken: getToken,
-});
+// 根据环境变量选择使用 mock 客户端还是真实 API 客户端
+const client: IHttpClient = useMock
+  ? createMockHttpClient({ delay: 300, debug: true })
+  : createTauriHttpClient({
+      baseURL: apiBaseURL,
+      getAuthToken: getToken,
+    });
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

@@ -39,6 +39,9 @@ import {
   useOperationQuery,
   extractOperationId,
   ShotStatus,
+  getTransitionOptions,
+  getTransitionPlaceholder,
+  getTransitionLabel,
 } from "@story2video/core";
 
 const ShotDetail = () => {
@@ -71,8 +74,8 @@ const ShotDetail = () => {
           placement: "top",
           render: ({ id }) => (
             <Toast action="success" variant="accent" nativeID={id}>
-              <ToastTitle>Success</ToastTitle>
-              <ToastDescription>Image regenerated successfully.</ToastDescription>
+              <ToastTitle>成功</ToastTitle>
+              <ToastDescription>图像重新生成完成。</ToastDescription>
             </Toast>
           ),
         });
@@ -89,7 +92,7 @@ const ShotDetail = () => {
         placement: "top",
         render: ({ id }) => (
           <Toast action="error" variant="accent" nativeID={id}>
-            <ToastTitle>Error</ToastTitle>
+            <ToastTitle>错误</ToastTitle>
             <ToastDescription>{regenerateOperationQuery.errorMessage}</ToastDescription>
           </Toast>
         ),
@@ -121,8 +124,8 @@ const ShotDetail = () => {
         placement: "top",
         render: ({ id }) => (
           <Toast action="error" variant="accent" nativeID={id}>
-            <ToastTitle>Error</ToastTitle>
-            <ToastDescription>{err?.message || "Failed to generate image."}</ToastDescription>
+            <ToastTitle>错误</ToastTitle>
+            <ToastDescription>{err?.message || "生成图像失败"}</ToastDescription>
           </Toast>
         ),
       });
@@ -148,8 +151,8 @@ const ShotDetail = () => {
         placement: "top",
         render: ({ id: toastNativeId }) => (
           <Toast action="success" variant="accent" nativeID={toastNativeId}>
-            <ToastTitle>Success</ToastTitle>
-            <ToastDescription>Shot updated successfully.</ToastDescription>
+            <ToastTitle>成功</ToastTitle>
+            <ToastDescription>分镜已保存。</ToastDescription>
           </Toast>
         ),
       });
@@ -158,8 +161,8 @@ const ShotDetail = () => {
         placement: "top",
         render: ({ id: toastNativeId }) => (
           <Toast action="error" variant="accent" nativeID={toastNativeId}>
-            <ToastTitle>Error</ToastTitle>
-            <ToastDescription>{err?.message || "Failed to save shot."}</ToastDescription>
+            <ToastTitle>错误</ToastTitle>
+            <ToastDescription>{err?.message || "保存分镜失败"}</ToastDescription>
           </Toast>
         ),
       });
@@ -172,9 +175,9 @@ const ShotDetail = () => {
 
   const getStatusText = (s: ShotStatus | string) => {
     switch (s) {
-      case ShotStatus.DONE: return "Done";
-      case ShotStatus.GENERATING: return "Generating";
-      case ShotStatus.FAILED: return "Failed";
+      case ShotStatus.DONE: return "已完成";
+      case ShotStatus.GENERATING: return "生成中";
+      case ShotStatus.FAILED: return "失败";
       default: return String(s);
     }
   };
@@ -193,7 +196,7 @@ const ShotDetail = () => {
     return (
       <Box flex={1} bg="$backgroundLight0" justifyContent="center" alignItems="center">
         <Spinner size="large" />
-        <Text mt="$4">Loading shot...</Text>
+        <Text mt="$4">正在加载分镜...</Text>
       </Box>
     );
   }
@@ -202,9 +205,9 @@ const ShotDetail = () => {
   if (error) {
     return (
       <Box flex={1} bg="$backgroundLight0" justifyContent="center" alignItems="center" p="$4">
-        <Text color="$error500" mb="$4">Failed to load shot</Text>
+        <Text color="$error500" mb="$4">加载分镜失败</Text>
         <Button onPress={() => refetch()}>
-          <ButtonText>Retry</ButtonText>
+          <ButtonText>重试</ButtonText>
         </Button>
       </Box>
     );
@@ -223,11 +226,11 @@ const ShotDetail = () => {
       >
         <Button variant="link" onPress={() => navigate(`/storyboard?storyId=${storyId}`)} p="$0">
           <Icon as={ArrowLeftIcon} mr="$2" />
-          <ButtonText color="$textLight800">Back to Storyboard</ButtonText>
+          <ButtonText color="$textLight800">返回分镜列表</ButtonText>
         </Button>
 
         <HStack space="md" alignItems="center">
-          <Heading size="md">Shot {shot?.sequence || id}</Heading>
+          <Heading size="md">分镜 {shot?.sequence || id}</Heading>
           <Badge
             size="md"
             variant="solid"
@@ -245,7 +248,7 @@ const ShotDetail = () => {
           isDisabled={updateShotMutation.isPending}
         >
           {updateShotMutation.isPending && <Spinner color="$primary500" mr="$2" />}
-          <ButtonText>Save Changes</ButtonText>
+          <ButtonText>保存修改</ButtonText>
         </Button>
       </HStack>
 
@@ -281,7 +284,7 @@ const ShotDetail = () => {
               >
                 <Spinner size="large" color="$white" />
                 <Text color="$white" mt="$2">
-                  Generating...
+                  生成中...
                 </Text>
               </Box>
             )}
@@ -293,7 +296,7 @@ const ShotDetail = () => {
             isDisabled={isRegenerating}
           >
             <ButtonText>
-              {isRegenerating ? "Processing..." : "Regenerate Image"}
+              {isRegenerating ? "处理中..." : "重新生成图像"}
             </ButtonText>
           </Button>
           {regenerateOperationId && !regenerateOperationQuery.isComplete && (
@@ -314,24 +317,24 @@ const ShotDetail = () => {
           borderColor="$borderLight200"
         >
           <VStack space="sm">
-            <Text fontWeight="$bold">Prompt</Text>
+            <Text fontWeight="$bold">提示词</Text>
             <Textarea size="md" w="100%">
               <TextareaInput
-                placeholder="Describe the scene..."
+                placeholder="描述场景..."
                 value={prompt}
                 onChangeText={setPrompt}
               />
             </Textarea>
             <Text size="xs" color="$textLight400">
-              Modify the prompt to regenerate the image.
+              调整提示词以重新生成图像。
             </Text>
           </VStack>
 
           <VStack space="sm">
-            <Text fontWeight="$bold">Transition Effect</Text>
-            <Select selectedValue={transition} onValueChange={setTransition}>
+            <Text fontWeight="$bold">转换效果</Text>
+            <Select selectedValue={transition} initialLabel={getTransitionLabel(transition)} onValueChange={setTransition}>
               <SelectTrigger variant="outline" size="md">
-                <SelectInput placeholder="Select effect" />
+                  <SelectInput placeholder={getTransitionPlaceholder()} />
                 <SelectIcon mr="$3">
                   <Icon as={ChevronDownIcon} />
                 </SelectIcon>
@@ -342,19 +345,23 @@ const ShotDetail = () => {
                   <SelectDragIndicatorWrapper>
                     <SelectDragIndicator />
                   </SelectDragIndicatorWrapper>
-                  <SelectItem label="Ken Burns" value="ken_burns" />
-                  <SelectItem label="Crossfade" value="crossfade" />
-                  <SelectItem label="Volume Mix" value="volume_mix" />
+                    {getTransitionOptions().map((option) => (
+                      <SelectItem
+                        key={option.value}
+                        label={option.label}
+                        value={option.value}
+                      />
+                    ))}
                 </SelectContent>
               </SelectPortal>
             </Select>
           </VStack>
 
           <VStack space="sm">
-            <Text fontWeight="$bold">Narration</Text>
+            <Text fontWeight="$bold">旁白文本</Text>
             <Textarea size="md" w="100%">
               <TextareaInput
-                placeholder="Enter voiceover text..."
+                placeholder="输入旁白内容..."
                 value={narration}
                 onChangeText={setNarration}
               />

@@ -35,7 +35,7 @@ const Preview = () => {
   const { data: story, isLoading } = useStory(storyId);
 
   const videoUrl = story?.video_url || FALLBACK_VIDEO_URL;
-  const storyName = story?.title || "My Story Video";
+  const storyName = story?.title || "我的故事视频";
 
   const handleExport = async () => {
     setExporting(true);
@@ -48,8 +48,8 @@ const Preview = () => {
         render: ({ id }) => {
           return (
             <Toast action="success" variant="accent" nativeID={id}>
-              <ToastTitle>Success</ToastTitle>
-              <ToastDescription>Video exported successfully!</ToastDescription>
+              <ToastTitle>成功</ToastTitle>
+              <ToastDescription>视频导出完成！</ToastDescription>
             </Toast>
           );
         },
@@ -60,8 +60,8 @@ const Preview = () => {
         render: ({ id }) => {
           return (
             <Toast action="error" variant="accent" nativeID={id}>
-              <ToastTitle>Error</ToastTitle>
-              <ToastDescription>Failed to export video.</ToastDescription>
+              <ToastTitle>错误</ToastTitle>
+              <ToastDescription>导出视频失败。</ToastDescription>
             </Toast>
           );
         },
@@ -76,7 +76,7 @@ const Preview = () => {
     return (
       <Box flex={1} bg="$backgroundLight0" justifyContent="center" alignItems="center">
         <Spinner size="large" />
-        <Text mt="$4">Loading preview...</Text>
+        <Text mt="$4">正在加载预览...</Text>
       </Box>
     );
   }
@@ -102,7 +102,7 @@ const Preview = () => {
           >
             <Icon as={ArrowLeftIcon} size="lg" />
           </Button>
-          <Heading size="md">Preview</Heading>
+          <Heading size="md">视频预览</Heading>
         </HStack>
 
         {/* Main Content */}
@@ -119,9 +119,12 @@ const Preview = () => {
               src={videoUrl}
               controls
               style={{ width: "100%", height: "100%", outline: "none" }}
-              poster={story?.cover_url || "https://placehold.co/800x450/png?text=Video+Preview"}
+              poster={
+                story?.cover_url ||
+                "https://placehold.co/800x450/png?text=%E8%A7%86%E9%A2%91%E9%A2%84%E8%A7%88"
+              }
             >
-              Your browser does not support the video tag.
+              您的浏览器不支持视频播放。
             </video>
           </Box>
 
@@ -146,7 +149,7 @@ const Preview = () => {
               w="100%"
             >
               {exporting && <Spinner color="$white" mr="$2" />}
-              <ButtonText>{exporting ? "Exporting..." : "Export Video"}</ButtonText>
+              <ButtonText>{exporting ? "正在导出..." : "导出视频"}</ButtonText>
             </Button>
           </VStack>
         </VStack>
@@ -173,7 +176,7 @@ const Preview = () => {
         >
           <Icon as={ArrowLeftIcon} size="xl" color="$textLight800" />
         </Button>
-        <Heading size="xl">Preview Final Video</Heading>
+        <Heading size="xl">视频预览</Heading>
       </HStack>
 
       {/* Main Content */}
@@ -196,9 +199,12 @@ const Preview = () => {
             src={videoUrl}
             controls
             style={{ width: "100%", height: "100%", outline: "none" }}
-            poster={story?.cover_url || "https://placehold.co/1024x576/png?text=Video+Preview"}
+            poster={
+              story?.cover_url ||
+              "https://placehold.co/1024x576/png?text=%E8%A7%86%E9%A2%91%E9%A2%84%E8%A7%88"
+            }
           >
-            Your browser does not support the video tag.
+            您的浏览器不支持视频播放。
           </video>
         </Box>
 
@@ -231,7 +237,7 @@ const Preview = () => {
             isDisabled={exporting}
           >
             {exporting && <Spinner color="$white" mr="$2" />}
-            <ButtonText>{exporting ? "Exporting..." : "Export Video"}</ButtonText>
+            <ButtonText>{exporting ? "正在导出..." : "导出视频"}</ButtonText>
           </Button>
         </HStack>
       </VStack>

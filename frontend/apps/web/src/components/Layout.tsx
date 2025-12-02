@@ -7,7 +7,7 @@ import {
   Icon,
   Heading,
 } from "@story2video/ui";
-import { Home, Layers, Library, ListTodo } from "lucide-react";
+import { Home, Library, ListTodo } from "lucide-react";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 
 interface NavItemProps {
@@ -114,12 +114,11 @@ const Sidebar = () => {
             mb="$2"
             px="$2"
           >
-            MENU
+            菜单
           </Text>
-          <NavItem to="/" icon={Home} label="Create Story" isActive={isActive("/")} />
-          <NavItem to="/storyboard" icon={Layers} label="Storyboard" isActive={isActive("/storyboard") || isActive("/shot")} />
-          <NavItem to="/operations" icon={ListTodo} label="Tasks" isActive={isActive("/operations")} />
-          <NavItem to="/assets" icon={Library} label="Assets Library" isActive={isActive("/assets")} />
+          <NavItem to="/" icon={Home} label="创建故事" isActive={isActive("/")} />
+          <NavItem to="/operations" icon={ListTodo} label="任务列表" isActive={isActive("/operations") || isActive("/storyboard") || isActive("/shot") || isActive("/preview")} />
+          <NavItem to="/assets" icon={Library} label="素材库" isActive={isActive("/assets")} />
         </VStack>
       </VStack>
     </Box>
@@ -156,10 +155,9 @@ const BottomTabs = () => {
       }}
     >
       <HStack justifyContent="space-around" alignItems="center" py="$1">
-        <NavItem to="/" icon={Home} label="Create" isActive={isActive("/")} isMobile />
-        <NavItem to="/storyboard" icon={Layers} label="Storyboard" isActive={isActive("/storyboard") || isActive("/shot")} isMobile />
-        <NavItem to="/operations" icon={ListTodo} label="Tasks" isActive={isActive("/operations")} isMobile />
-        <NavItem to="/assets" icon={Library} label="Assets" isActive={isActive("/assets")} isMobile />
+        <NavItem to="/" icon={Home} label="创作" isActive={isActive("/")} isMobile />
+        <NavItem to="/operations" icon={ListTodo} label="任务" isActive={isActive("/operations") || isActive("/storyboard") || isActive("/shot") || isActive("/preview")} isMobile />
+        <NavItem to="/assets" icon={Library} label="素材" isActive={isActive("/assets")} isMobile />
       </HStack>
     </Box>
   );
