@@ -1,5 +1,5 @@
-import React, { useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Box,
   Heading,
@@ -16,20 +16,29 @@ import {
   ToastDescription,
   Spinner,
 } from "@story2video/ui";
+import { useStory } from "@story2video/core";
 
-// Mock video URL
-const MOCK_VIDEO_URL = "https://www.w3schools.com/html/mov_bbb.mp4";
+// Fallback mock video URL
+const FALLBACK_VIDEO_URL = "https://www.w3schools.com/html/mov_bbb.mp4";
 
 const Preview = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const storyId = searchParams.get("storyId") || "";
   const toast = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [exporting, setExporting] = useState(false);
 
+  // 获取故事数据
+  const { data: story, isLoading } = useStory(storyId);
+
+  const videoUrl = story?.video_url || FALLBACK_VIDEO_URL;
+  const storyName = story?.title || "我的故事视频";
+
   const handleExport = async () => {
     setExporting(true);
     try {
-      // Mock export process
+      // TODO: 实现实际的导出逻辑
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
       toast.show({
@@ -37,20 +46,20 @@ const Preview = () => {
         render: ({ id }) => {
           return (
             <Toast action="success" variant="accent" nativeID={id}>
-              <ToastTitle>Success</ToastTitle>
-              <ToastDescription>Video exported successfully!</ToastDescription>
+              <ToastTitle>成功</ToastTitle>
+              <ToastDescription>视频导出完成！</ToastDescription>
             </Toast>
           );
         },
       });
-    } catch (error) {
+    } catch (err) {
       toast.show({
         placement: "top",
         render: ({ id }) => {
           return (
             <Toast action="error" variant="accent" nativeID={id}>
-              <ToastTitle>Error</ToastTitle>
-              <ToastDescription>Failed to export video.</ToastDescription>
+              <ToastTitle>错误</ToastTitle>
+              <ToastDescription>导出视频失败。</ToastDescription>
             </Toast>
           );
         },
@@ -59,6 +68,16 @@ const Preview = () => {
       setExporting(false);
     }
   };
+
+  // 加载中状态
+  if (isLoading) {
+    return (
+      <Box flex={1} bg="$backgroundLight0" justifyContent="center" alignItems="center">
+        <Spinner size="large" />
+        <Text mt="$4">正在加载预览...</Text>
+      </Box>
+    );
+  }
 
   return (
     <Box flex={1} bg="$backgroundLight0" p="$4">
@@ -73,12 +92,12 @@ const Preview = () => {
       >
         <Button
           variant="link"
-          onPress={() => navigate("/storyboard")}
+          onPress={() => navigate(`/storyboard?storyId=${storyId}`)}
           p="$0"
         >
           <Icon as={ArrowLeftIcon} size="xl" color="$textLight800" />
         </Button>
-        <Heading size="xl">Preview Final Video</Heading>
+        <Heading size="xl">视频预览</Heading>
       </HStack>
 
       {/* Main Content */}
@@ -96,16 +115,17 @@ const Preview = () => {
           shadowRadius={8}
           elevation={5}
         >
-          {/* Video Player */}
-          {/* Using native video controls to satisfy: Play, Pause, Drag Timeline, Adjust Volume */}
           <video
             ref={videoRef}
-            src={MOCK_VIDEO_URL}
+            src={videoUrl}
             controls
             style={{ width: "100%", height: "100%", outline: "none" }}
-            poster="https://placehold.co/1024x576/png?text=Video+Preview"
+            poster={
+              story?.cover_url ||
+              "https://placehold.co/1024x576/png?text=%E8%A7%86%E9%A2%91%E9%A2%84%E8%A7%88"
+            }
           >
-            Your browser does not support the video tag.
+            您的浏览器不支持视频播放。
           </video>
         </Box>
 
@@ -127,8 +147,8 @@ const Preview = () => {
           elevation={1}
         >
           <VStack>
-            <Heading size="sm">My Story Video.mp4</Heading>
-            <Text size="sm" color="$textLight500">Duration: 00:10 • 1080p</Text>
+            <Heading size="sm">{storyName}.mp4</Heading>
+            <Text size="sm" color="$textLight500">1080p</Text>
           </VStack>
 
           <Button
@@ -138,7 +158,7 @@ const Preview = () => {
             isDisabled={exporting}
           >
             {exporting && <Spinner color="$white" mr="$2" />}
-            <ButtonText>{exporting ? "Exporting..." : "Export Video"}</ButtonText>
+            <ButtonText>{exporting ? "正在导出..." : "导出视频"}</ButtonText>
           </Button>
         </HStack>
       </VStack>

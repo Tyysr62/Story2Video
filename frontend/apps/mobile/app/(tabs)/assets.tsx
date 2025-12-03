@@ -10,78 +10,84 @@ import {
   InputIcon,
   SearchIcon,
   VStack,
+  HStack,
   Text,
   Image,
+  Badge,
+  BadgeText,
 } from "@story2video/ui";
-
-// Mock data
-const initialAssets = [
-  {
-    id: "1",
-    title: "The Lost City",
-    date: "2023-10-27",
-    thumbnail: "https://placehold.co/600x400/png?text=Lost+City",
-  },
-  {
-    id: "2",
-    title: "Space Odyssey",
-    date: "2023-10-26",
-    thumbnail: "https://placehold.co/600x400/png?text=Space",
-  },
-  {
-    id: "3",
-    title: "Ocean Depths",
-    date: "2023-10-25",
-    thumbnail: "https://placehold.co/600x400/png?text=Ocean",
-  },
-  {
-    id: "4",
-    title: "Cyberpunk City",
-    date: "2023-10-24",
-    thumbnail: "https://placehold.co/600x400/png?text=Cyberpunk",
-  },
-  {
-    id: "5",
-    title: "Medieval Kingdom",
-    date: "2023-10-23",
-    thumbnail: "https://placehold.co/600x400/png?text=Medieval",
-  },
-];
+import { mockStories, StoryStatus } from "@story2video/core";
+import type { Story } from "@story2video/core";
 
 export default function AssetsScreen() {
   const [search, setSearch] = useState("");
-  const [assets] = useState(initialAssets);
 
-  const filteredAssets = assets.filter((asset) =>
-    asset.title.toLowerCase().includes(search.toLowerCase())
+  // 使用 mockStories 作为数据源
+  const filteredAssets = mockStories.filter((story) =>
+    story.title.toLowerCase().includes(search.toLowerCase())
   );
 
-  const renderItem = ({ item }: { item: (typeof initialAssets)[0] }) => (
-    <Box
-      bg="$white"
-      borderRadius="$lg"
-      borderWidth={1}
-      borderColor="$borderLight200"
-      overflow="hidden"
-      mb="$4"
-    >
-      <Image
-        source={{ uri: item.thumbnail }}
-        alt={item.title}
-        h={180}
-        w="100%"
-        resizeMode="cover"
-      />
-      <VStack p="$4" space="xs">
-        <Heading size="sm" isTruncated>
-          {item.title}
-        </Heading>
-        <Text size="xs" color="$textLight400">
-          Created: {item.date}
-        </Text>
-      </VStack>
-    </Box>
-  );
+  // 格式化日期
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("zh-CN", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+  };
+
+  // 获取状态 Badge
+  const getStatusBadge = (status: StoryStatus) => {
+    switch (status) {
+      case StoryStatus.READY:
+        return { action: "success" as const, label: "已完成" };
+      case StoryStatus.GENERATING:
+        return { action: "info" as const, label: "生成中" };
+      case StoryStatus.FAILED:
+        return { action: "error" as const, label: "失败" };
+      default:
+        return { action: "muted" as const, label: status };
+    }
+  };
+
+  const renderItem = ({ item: story }: { item: Story }) => {
+    const statusInfo = getStatusBadge(story.status);
+    return (
+      <Box
+        bg="$white"
+        borderRadius="$lg"
+        borderWidth={1}
+        borderColor="$borderLight200"
+        overflow="hidden"
+        mb="$4"
+      >
+        <Image
+          source={{ uri: story.cover_url || `https://placehold.co/600x400/png?text=${encodeURIComponent(story.title)}` }}
+          alt={story.title}
+          h={180}
+          w="100%"
+          resizeMode="cover"
+        />
+        <VStack p="$4" space="xs">
+          <HStack justifyContent="space-between" alignItems="center">
+            <Heading size="sm" isTruncated flex={1}>
+              {story.title}
+            </Heading>
+            <Badge size="sm" variant="solid" borderRadius="$full" action={statusInfo.action}>
+              <BadgeText>{statusInfo.label}</BadgeText>
+            </Badge>
+          </HStack>
+          <Text size="xs" color="$textLight400">
+            创建: {formatDate(story.created_at)}
+          </Text>
+          <Text size="xs" color="$textLight500" numberOfLines={1}>
+            {story.content}
+          </Text>
+        </VStack>
+      </Box>
+    );
+  };
 
   return (
     <Box flex={1} bg="$backgroundLight0">

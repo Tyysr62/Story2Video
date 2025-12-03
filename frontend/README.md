@@ -10,7 +10,8 @@
 frontend/
 ├── apps/                   # 具体应用程序
 │   ├── desktop/            # 🖥️ 桌面端应用 (Tauri + React + Vite)
-│   └── mobile/             # 📱 移动端应用 (Expo + React Native)
+│   ├── mobile/             # 📱 移动端应用 (Expo + React Native)
+│   └── web/                # 🌐 Web 端应用 (React + Vite)
 ├── packages/               # 共享代码库
 │   ├── core/               # 🧠 核心业务逻辑 (API, WebSocket, Types, Hooks)
 │   └── ui/                 # 🎨 UI 组件库 (Gluestack UI + NativeWind)
@@ -25,6 +26,7 @@ frontend/
 - **Monorepo 工具**: Turborepo
 - **桌面端**: Tauri v2, React 19, Vite
 - **移动端**: Expo, React Native, NativeWind (Tailwind for RN)
+- **Web 端**: React 19, Vite, 响应式设计 (桌面/移动端浏览器)
 - **共享 UI**: Gluestack UI
 - **API 通信**: WebSocket (实时进度), Axios/Fetch (REST API)
 
@@ -69,6 +71,13 @@ cd apps/desktop && pnpm dev
 pnpm --filter mobile start
 # 或者进入目录
 cd apps/mobile && pnpm start
+```
+
+**只启动 Web 端：**
+```bash
+pnpm dev:web
+# 或者进入目录
+cd apps/web && pnpm dev
 ```
 
 ---
@@ -139,6 +148,10 @@ unsubscribe();
   - `pnpm -F mobile android`: 启动 Android 模拟器
   - `pnpm -F mobile ios`: 启动 iOS 模拟器
   - `pnpm -F mobile web`: 在浏览器中预览移动端应用
+
+- **Web 相关**:
+  - `pnpm dev:web`: 启动 Web 开发服务器
+  - `pnpm -F web build`: 构建 Web 应用
 
 ---
 

@@ -31,7 +31,7 @@ function toAxiosConfig(
 /**
  * 将 AxiosError 规范化为更易读的 Error
  */
-function normalizeAxiosError(error: unknown): never {
+function normalizeAxiosError(error: unknown): Error {
   if (axios.isAxiosError(error)) {
     const axErr = error as AxiosError<any>;
     const status = axErr.response?.status;
@@ -53,14 +53,14 @@ function normalizeAxiosError(error: unknown): never {
     // 附加有用的上下文信息供上层处理器使用
     (err as any).status = status;
     (err as any).data = data;
-    throw err;
+    return err;
   }
 
   // 不是 AxiosError：以最小的转换重新抛出
   if (error instanceof Error) {
-    throw error;
+    return error;
   }
-  throw new Error(String(error));
+  return new Error(String(error));
 }
 
 export type AuthTokenProvider = () => string | Promise<string>;
@@ -121,7 +121,7 @@ export class AxiosHttpClient implements IHttpClient {
       );
       return res.data;
     } catch (err) {
-      normalizeAxiosError(err);
+      throw normalizeAxiosError(err);
     }
   }
 
@@ -134,7 +134,7 @@ export class AxiosHttpClient implements IHttpClient {
       );
       return res.data;
     } catch (err) {
-      normalizeAxiosError(err);
+      throw normalizeAxiosError(err);
     }
   }
 
@@ -147,7 +147,7 @@ export class AxiosHttpClient implements IHttpClient {
       );
       return res.data;
     } catch (err) {
-      normalizeAxiosError(err);
+      throw normalizeAxiosError(err);
     }
   }
 
@@ -159,7 +159,7 @@ export class AxiosHttpClient implements IHttpClient {
       );
       return res.data;
     } catch (err) {
-      normalizeAxiosError(err);
+      throw normalizeAxiosError(err);
     }
   }
 }

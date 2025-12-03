@@ -10,8 +10,9 @@ import "@story2video/ui/global.css";
 import { GluestackUIProvider } from "@story2video/ui";
 
 import { useColorScheme } from "../hooks/use-color-scheme";
-import { ApiProvider, SocketProvider, SocketManager } from "@story2video/core";
+import { ApiProvider, QueryProvider, IHttpClient } from "@story2video/core";
 import { createAxiosHttpClient } from "@story2video/core/axios";
+import { createMockHttpClient } from "@story2video/core/mock";
 
 export const unstable_settings = {
   anchor: "(tabs)",
@@ -19,16 +20,17 @@ export const unstable_settings = {
 
 const apiBaseURL =
   process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+const useMock = process.env.EXPO_PUBLIC_USE_MOCK === "true";
+
 const getToken = () => "";
-const client = createAxiosHttpClient({
-  baseURL: apiBaseURL,
-  getAuthToken: getToken,
-});
-const socketManager = new SocketManager();
-const wsUrl =
-  process.env.EXPO_PUBLIC_WS_URL ??
-  apiBaseURL.replace(/^http/i, "ws") + "/stream";
-socketManager.connect(wsUrl, getToken());
+
+// 根据环境变量选择使用 mock 客户端还是真实 API 客户端
+const client: IHttpClient = useMock
+  ? createMockHttpClient({ delay: 300, debug: true })
+  : createAxiosHttpClient({
+      baseURL: apiBaseURL,
+      getAuthToken: getToken,
+    });
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -36,7 +38,7 @@ export default function RootLayout() {
 
   return (
     <GluestackUIProvider mode={themeMode}>
-      <SocketProvider socket={socketManager}>
+      <QueryProvider>
         <ApiProvider client={client}>
           <ThemeProvider
             value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
@@ -44,15 +46,19 @@ export default function RootLayout() {
             <Stack>
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
               <Stack.Screen
-                name="shot/[id]"
-                options={{ title: "Shot Detail" }}
+                name="storyboard"
+                options={{ title: "分镜列表", headerShown: false }}
               />
-              <Stack.Screen name="preview" options={{ title: "Preview" }} />
+              <Stack.Screen
+                name="shot/[id]"
+                options={{ title: "分镜详情", headerShown: false }}
+              />
+              <Stack.Screen name="preview" options={{ title: "视频预览", headerShown: false }} />
             </Stack>
             <StatusBar style="auto" />
           </ThemeProvider>
         </ApiProvider>
-      </SocketProvider>
+      </QueryProvider>
     </GluestackUIProvider>
   );
 }

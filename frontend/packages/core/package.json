@@ -16,9 +16,15 @@
     "./tauri": {
       "types": "./src/api/clients/tauri-client.ts",
       "import": "./src/api/clients/tauri-client.ts"
+    },
+    "./mock": {
+      "types": "./src/api/clients/mock-client.ts",
+      "import": "./src/api/clients/mock-client.ts"
     }
   },
   "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0",
+    "@tanstack/react-query": "^5.0.0",
     "axios": "^1.13.2",
     "@tauri-apps/plugin-http": "^2.5.4"
   },
@@ -29,5 +35,8 @@
     "@tauri-apps/plugin-http": {
       "optional": true
     }
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.90.11"
   }
 }

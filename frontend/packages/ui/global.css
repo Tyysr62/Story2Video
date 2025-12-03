@@ -2,3 +2,27 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Fix for Gluestack Button component on web - primary action with solid variant */
+button[role="button"][data-component-config*='"componentName":"Button"'][data-component-config*='"action":"primary"'][data-component-config*='"variant":"solid"'] {
+  background-color: #0077FF !important;
+}
+
+button[role="button"][data-component-config*='"componentName":"Button"'][data-component-config*='"action":"primary"'][data-component-config*='"variant":"solid"'] > div {
+  color: white !important;
+}
+
+/* Secondary/outline button styles */
+button[role="button"][data-component-config*='"componentName":"Button"'][data-component-config*='"variant":"outline"'] {
+  background-color: transparent !important;
+  border: 1px solid #d1d5db !important;
+}
+
+button[role="button"][data-component-config*='"componentName":"Button"'][data-component-config*='"variant":"outline"'] > div {
+  color: #374151 !important;
+}
+
+/* Link variant button */
+button[role="button"][data-component-config*='"componentName":"Button"'][data-component-config*='"variant":"link"'] > div {
+  color: #374151 !important;
+}
