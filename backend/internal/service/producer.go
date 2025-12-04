@@ -26,8 +26,11 @@ type kafkaProducer struct {
 
 func newKafkaProducer(cfg *conf.Config, logger *zap.Logger) producer {
 	if len(cfg.Kafka.Brokers) == 0 || cfg.Kafka.Topic == "" {
-		logger.Warn("kafka config missing, fallback to noop producer")
-		return &noopProducer{logger: logger}
+		err := fmt.Errorf("kafka config missing, brokers=%v, topic=%s", cfg.Kafka.Brokers, cfg.Kafka.Topic)
+		if logger != nil {
+			logger.Error("kafka config invalid", zap.Error(err))
+		}
+		return &failingProducer{err: err}
 	}
 
 	if cfg.Kafka.AutoCreateTopic {
@@ -59,15 +62,15 @@ func (p *kafkaProducer) Publish(ctx context.Context, msg StoryJobMessage) error 
 	})
 }
 
-type noopProducer struct {
-	logger *zap.Logger
+type failingProducer struct {
+	err error
 }
 
-func (n *noopProducer) Publish(_ context.Context, msg StoryJobMessage) error {
-	if n.logger != nil {
-		n.logger.Info("noop kafka producer invoked", zap.String("operation_id", msg.OperationID))
+func (f *failingProducer) Publish(_ context.Context, _ StoryJobMessage) error {
+	if f.err != nil {
+		return f.err
 	}
-	return nil
+	return errors.New("kafka producer unavailable")
 }
 
 func ensureKafkaTopic(cfg conf.Kafka) error {

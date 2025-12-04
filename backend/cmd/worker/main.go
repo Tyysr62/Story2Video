@@ -59,6 +59,9 @@ func main() {
 		panic(fmt.Errorf("init grpc client: %w", err))
 	}
 	defer closeConn()
+	if modelConn == nil || modelConn.Conn() == nil {
+		panic("init grpc client: empty GRPC addr or connection unavailable")
+	}
 
 	reader := newKafkaReader(cfg)
 	defer reader.Close()
@@ -247,7 +250,15 @@ func (w *worker) upsertShot(ctx context.Context, job service.StoryJobMessage, sh
 			shotUUID = parsed
 			hasShotID = true
 			if err := w.data.DB.WithContext(ctx).First(&existing, "id = ?", shotUUID).Error; err == nil {
-				return w.updateShot(ctx, &existing, shot, details)
+				if err := w.updateShot(ctx, &existing, shot, details); err != nil {
+					return err
+				}
+				if shot.ImageUrl != "" {
+					if err := w.ensureStoryCover(ctx, storyID); err != nil {
+						w.logger.Warn("ensure story cover", zap.Error(err), zap.String("story_id", storyID.String()))
+					}
+				}
+				return nil
 			} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 				return err
 			}
