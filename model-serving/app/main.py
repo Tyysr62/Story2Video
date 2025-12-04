@@ -48,4 +48,5 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 if __name__ == "__main__":
-    uvicorn.run("app.main:app", host="0.0.0.0", port=12345, reload=True)
+    from app.core.config import SERVICE_PORT
+    uvicorn.run("app.main:app", host="0.0.0.0", port=SERVICE_PORT, reload=True)

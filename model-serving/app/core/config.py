@@ -19,14 +19,14 @@ COMFY_INPUT_DIR: Path = COMFY_BASE_DIR / "input"
 COMFY_OUTPUT_DIR: Path = COMFY_BASE_DIR / "output"
 
 OUTPUT_DIR: Path = PROJECT_ROOT / "result"
-DATA_DIR: Path = PROJECT_ROOT / "data"
 
 # 测试快速返回开关：开启后渲染接口直接返回占位视频路径，但后台仍执行真实生成流程
 TEST_FAST_RETURN: bool = os.getenv("TEST_FAST_RETURN", "false").lower() in {"1", "true", "yes"}
 
+SERVICE_PORT: int = int(os.getenv("SERVICE_PORT", "12345"))
+
 # 初始化必要目录
 OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
-DATA_DIR.mkdir(exist_ok=True, parents=True)
 
 # OSS 配置
 OSS_ENDPOINT: str = os.getenv("OSS_ENDPOINT", "oss-cn-beijing.aliyuncs.com")
@@ -35,3 +35,24 @@ OSS_ACCESS_KEY_SECRET: str = os.getenv("OSS_ACCESS_KEY_SECRET", "3WRvSjX3rX1mwoX
 OSS_BUCKET: str = os.getenv("OSS_BUCKET", "bytedance-s2v")
 OSS_BASE_URL: str = os.getenv("OSS_BASE_URL", "")
 OSS_URL_EXPIRES: int = int(os.getenv("OSS_URL_EXPIRES", "86400"))
+
+LOCAL_INFERENCE: bool = os.getenv("LOCAL_INFERENCE", "false").lower() in {"1", "true", "yes"}
+
+SEEDANCE_API_URL: str = os.getenv("SEEDANCE_API_URL", os.getenv("ARK_API_URL", "https://ark.cn-beijing.volces.com/api/v3"))
+SEEDANCE_API_KEY: str = os.getenv("SEEDANCE_API_KEY", os.getenv("ARK_API_KEY", "775bd32d-cb41-4486-b511-5206a8b4e13e"))
+
+QIANFAN_API_KEY: str = os.getenv("QIANFAN_API_KEY", "bce-v3/ALTAK-3i0EaJEhiZWKxYiH4vMea/416e978da32e307af68eaeeb55b144f2238b6d0b")
+QIANFAN_CREATE_URL: str = os.getenv("QIANFAN_CREATE_URL", "https://qianfan.baidubce.com/video/generations")
+QIANFAN_QUERY_URL: str = os.getenv("QIANFAN_QUERY_URL", "https://qianfan.baidubce.com/video/generations?task_id={task_id}")
+QIANFAN_MODEL: str = os.getenv("QIANFAN_MODEL", "musesteamer-2.0-turbo-i2v-audio")
+QIANFAN_DURATION: int = int(os.getenv("QIANFAN_DURATION", "5"))
+QIANFAN_POLL_INTERVAL: int = int(os.getenv("QIANFAN_POLL_INTERVAL", "5"))
+QIANFAN_MAX_POLL_TIMES: int = int(os.getenv("QIANFAN_MAX_POLL_TIMES", "60"))
+QIANFAN_MAX_CONCURRENCY: int = int(os.getenv("QIANFAN_MAX_CONCURRENCY", "3"))
+
+# Pixverse API 配置
+PIXVERSE_MAX_CONCURRENCY: int = int(os.getenv("PIXVERSE_MAX_CONCURRENCY", "25"))
+PIXVERSE_API_KEY: str = os.getenv("PIXVERSE_API_KEY", "sk-707f87c967e6e096ce52f82d544a0c6c")
+PIXVERSE_UPLOAD_URL: str = os.getenv("PIXVERSE_UPLOAD_URL", "https://app-api.pixverseai.cn/openapi/v2/image/upload")
+PIXVERSE_GENERATE_URL: str = os.getenv("PIXVERSE_GENERATE_URL", "https://app-api.pixverseai.cn/openapi/v2/video/img/generate")
+PIXVERSE_RESULT_URL: str = os.getenv("PIXVERSE_RESULT_URL", "https://app-api.pixverseai.cn/openapi/v2/video/result")
