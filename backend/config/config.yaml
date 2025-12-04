@@ -44,3 +44,10 @@ kafka:
   replication_factor: 1
   auto_create_topic: true
 
+cors:
+  allow_origins:
+    - "https://story2video.maredevi.fun"
+    - "http://localhost:5173"
+    - "http://localhost:1420"
+    - "tauri://localhost"
+

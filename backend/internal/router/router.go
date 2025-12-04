@@ -17,7 +17,7 @@ func NewRouter(cfg *conf.Config, log *zap.Logger, d *data.Data) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Recovery())
 	r.Use(middleware.Logger(log))
-	r.Use(middleware.CORS())
+	r.Use(middleware.CORSWithOrigins(cfg.CORS.AllowOrigins))
 
 	api := r.Group("/v1")
 	api.Use(middleware.User())
