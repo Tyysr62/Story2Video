@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS operations (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id     UUID        NOT NULL,
     story_id    UUID        NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
-    shot_id     UUID        REFERENCES shots(id) ON DELETE SET NULL,
+    shot_id     UUID,
     type        VARCHAR(32) NOT NULL,
     payload     JSONB,
     status      VARCHAR(16) NOT NULL DEFAULT 'queued',

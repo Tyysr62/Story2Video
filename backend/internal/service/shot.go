@@ -67,6 +67,11 @@ func (s *ShotService) UpdateScript(ctx context.Context, storyID, shotID, userID 
 		return nil, errors.New("details cannot be empty")
 	}
 
+	// Verify shot exists before creating operation with foreign key reference
+	if shot.ID == uuid.Nil {
+		return nil, errors.New("invalid shot id")
+	}
+
 	payloadBytes, err := json.Marshal(map[string]string{
 		"shot_id": shotID.String(),
 		"details": script,
