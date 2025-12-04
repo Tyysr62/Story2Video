@@ -1,1 +1,104 @@
 .vercel
+# ==========================
+# 1. Python / 后端 / AI 通用
+# ==========================
+# 字节码与缓存
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 虚拟环境 (非常重要，不要上传!)
+venv/
+.venv/
+env/
+.env
+my_env/
+
+# Jupyter Notebook 缓存
+.ipynb_checkpoints
+
+# Python 分发与构建包
+dist/
+build/
+*.egg-info/
+
+# ==========================
+# 2. Node.js / 前端 (React/Vue)
+# ==========================
+# 依赖包 (体积巨大，绝对不要上传!)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 构建输出目录
+dist/
+build/
+.output/
+.nuxt/
+.playwright-mcp/
+
+# ==========================
+# 3. 操作系统与IDE文件
+# ==========================
+# Mac
+.DS_Store
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# IDE 配置 (VS Code / PyCharm)
+.idea/
+.vscode/
+.turbo/
+*.swp
+*.swo
+
+# ==========================
+# 4. 项目特定 - 敏感信息 (安全!)
+# ==========================
+# 环境变量文件 (通常包含字节云Access Key、数据库密码)
+.env
+.env.local
+.env.*.local
+
+# FRP 配置文件 (防止泄露 token)
+# 注意：你可以保留一个 frpc.ini.template 提交上去，但真实的 ini 不要传
+frpc.ini
+frps.ini
+
+# SSL 证书 / 密钥
+*.pem
+*.key
+*.crt
+
+# ==========================
+# 5. 项目特定 - 数据与生成产物 (大文件)
+# ==========================
+# AI 模型权重文件 (Git存不下几个G的文件)
+*.pth
+*.safetensors
+*.ckpt
+*.bin
+*.h5
+*.onnx
+
+# 本地数据库 (SQLite)
+*.sqlite
+*.sqlite3
+db.sqlite3
+
+# 生成的中间产物 (图片、视频、音频)
+# 你们生成的素材应该存在云端或临时文件夹，不要污染代码库
+output/
+generated/
+temp/
+
+# go 后端
+.cursor/
+*.pdf
+*.env
+*.log
+

@@ -7,6 +7,9 @@ const extensions = [
   '.web.tsx', '.tsx', '.web.ts', '.ts', '.web.jsx', '.jsx', '.web.js', '.js', '.css', '.json'
 ];
 
+// 空模块占位符，用于替换 RN-only 的包
+const emptyModule = path.resolve(__dirname, "src/empty-module.ts");
+
 export default defineConfig(({ mode }) => ({
   plugins: [react()],
   resolve: {
@@ -17,11 +20,11 @@ export default defineConfig(({ mode }) => ({
       // 修复 @legendapp/motion 缺失的 exports 导致 Vite 依赖优化崩溃
       "@legendapp/motion/react-native-web": "@legendapp/motion",
       "@legendapp/motion/react-native-web/svg": "@legendapp/motion/svg",
-      // NativeWind v4 Web 端支持的关键别名
-      "nativewind/presets": path.resolve(
-        __dirname,
-        "../../node_modules/nativewind/dist/presets",
-      ),
+      // NativeWind 在 web 端不需要，替换为空模块
+      "nativewind": emptyModule,
+      "nativewind/preset": emptyModule,
+      "nativewind/presets": emptyModule,
+      "react-native-css-interop": emptyModule,
       "@story2video/ui": path.resolve(__dirname, "../../packages/ui"),
     },
   },
