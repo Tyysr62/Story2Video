@@ -9,7 +9,7 @@ const STORY_STYLE_LABELS: Record<StoryStyle, Record<SupportedLocale, string>> = 
     "zh-CN": "电影",
     "en-US": "Movie",
   },
-  [StoryStyle.ANIME]: {
+  [StoryStyle.ANIMATION]: {
     "zh-CN": "动画",
     "en-US": "Animation",
   },
@@ -24,10 +24,14 @@ const STORY_STYLE_PLACEHOLDER: Record<SupportedLocale, string> = {
   "en-US": "Select style",
 };
 
-export const TRANSITION_VALUES = ["ken_burns", "crossfade", "volume_mix"] as const;
+export const TRANSITION_VALUES = ["none","ken_burns", "crossfade"] as const;
 export type TransitionType = typeof TRANSITION_VALUES[number];
 
 const TRANSITION_LABELS: Record<TransitionType, Record<SupportedLocale, string>> = {
+  none: {
+    "zh-CN": "无",
+    "en-US": "None",
+  },
   ken_burns: {
     "zh-CN": "肯尼伯恩斯",
     "en-US": "Ken Burns",
@@ -35,11 +39,7 @@ const TRANSITION_LABELS: Record<TransitionType, Record<SupportedLocale, string>>
   crossfade: {
     "zh-CN": "渐变",
     "en-US": "Crossfade",
-  },
-  volume_mix: {
-    "zh-CN": "音量混合",
-    "en-US": "Volume Mix",
-  },
+  }
 };
 
 const TRANSITION_PLACEHOLDER: Record<SupportedLocale, string> = {

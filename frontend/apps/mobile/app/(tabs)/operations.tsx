@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { FlatList } from "react-native";
+import { FlatList, RefreshControl } from "react-native";
 import { router } from "expo-router";
 import {
   Box,
@@ -14,16 +14,27 @@ import {
   Pressable,
 } from "@story2video/ui";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
-import { mockOperations, OperationStatus, OperationType } from "@story2video/core";
+import { useOperationsWithPolling, OperationStatus, OperationType } from "@story2video/core";
 import type { Operation } from "@story2video/core";
 
 export default function OperationsScreen() {
-  const [operations] = useState<Operation[]>(mockOperations);
   const [filter, setFilter] = useState<OperationStatus | "all">("all");
 
-  const filteredOperations = filter === "all" 
-    ? operations 
-    : operations.filter(op => op.status === filter);
+  // 使用轮询 hook 获取真实数据
+  const {
+    operations,
+    isLoading,
+    pendingCount,
+    refetchAll,
+  } = useOperationsWithPolling({
+    pollInterval: 5000, // 5秒轮询
+  });
+
+  // 根据筛选条件过滤任务
+  const filteredOperations = useMemo(() => {
+    if (filter === "all") return operations;
+    return operations.filter((op) => op.status === filter);
+  }, [operations, filter]);
 
   // 点击已完成的任务跳转到对应页面
   const handleOperationClick = (op: Operation) => {
@@ -125,12 +136,31 @@ export default function OperationsScreen() {
     <Box flex={1} bg="$backgroundLight0">
       <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
         <VStack space="md" flex={1} p="$4">
-          <VStack space="xs">
-            <Heading size="xl">任务列表</Heading>
-            <Text size="sm" color="$textLight500">
-              查看所有任务的执行状态
-            </Text>
-          </VStack>
+          <HStack justifyContent="space-between" alignItems="center">
+            <VStack space="xs" flex={1}>
+              <Heading size="xl">任务列表</Heading>
+              <Text size="sm" color="$textLight500">
+                查看所有任务的执行状态
+                {pendingCount > 0 && ` (${pendingCount} 个进行中)`}
+              </Text>
+            </VStack>
+            <Pressable onPress={refetchAll} disabled={isLoading}>
+              <Box
+                w="$10"
+                h="$10"
+                bg="$backgroundLight100"
+                borderRadius="$full"
+                alignItems="center"
+                justifyContent="center"
+              >
+                {isLoading ? (
+                  <Spinner size="small" />
+                ) : (
+                  <FontAwesome name="refresh" size={16} color="#666" />
+                )}
+              </Box>
+            </Pressable>
+          </HStack>
 
           {/* Filter Buttons */}
           <HStack space="sm" flexWrap="wrap" mb="$2">
@@ -147,9 +177,14 @@ export default function OperationsScreen() {
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 16, gap: 12 }}
+            refreshControl={
+              <RefreshControl refreshing={isLoading} onRefresh={refetchAll} />
+            }
             ListEmptyComponent={
               <Box p="$8" alignItems="center">
-                <Text color="$textLight400">暂无任务</Text>
+                <Text color="$textLight400">
+                  {operations.length === 0 ? "暂无任务，创建故事后任务将显示在这里" : "没有符合筛选条件的任务"}
+                </Text>
               </Box>
             }
             renderItem={({ item: op }) => {
@@ -204,7 +239,7 @@ export default function OperationsScreen() {
                         action={statusInfo.action}
                       >
                         <HStack space="xs" alignItems="center" px="$1">
-                          {op.status === "running" ? (
+                          {op.status === "running" || op.status === "queued" ? (
                             <Spinner size="small" color="$white" />
                           ) : (
                             <FontAwesome name={statusInfo.icon} size={10} color="white" />

@@ -5,6 +5,7 @@ pnpm = "9"
 java = "temurin-17"
 rust = "latest"
 "npm:eas-cli" = "latest"
+"npm:vercel" = "latest"
 
 [env]
 WEBKIT_DISABLE_DMABUF_RENDERER = 1

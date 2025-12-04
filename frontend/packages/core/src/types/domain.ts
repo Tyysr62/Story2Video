@@ -31,7 +31,7 @@ export enum ShotStatus {
  */
 export enum StoryStyle {
   MOVIE = "movie",
-  ANIME = "anime",
+  ANIMATION = "animation",
   REALISTIC = "realistic",
 }
 

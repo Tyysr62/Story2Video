@@ -29,6 +29,7 @@ import {
 import {
   StoryStyle,
   useCreateStory,
+  useOperationsStore,
   getStoryStyleOptions,
   getStoryStylePlaceholder,
   getStoryStyleLabel,
@@ -41,6 +42,7 @@ export default function CreateScreen() {
 
   // 创建故事 mutation
   const createStoryMutation = useCreateStory();
+  const addOperation = useOperationsStore((state) => state.addOperation);
 
   const handleGenerate = async () => {
     // 基础校验：故事文本不能为空
@@ -59,11 +61,18 @@ export default function CreateScreen() {
 
     try {
       // 组装请求体（根据接口文档，直接发送而非包裹在 story 对象中）
-      await createStoryMutation.mutateAsync({
+      const response = await createStoryMutation.mutateAsync({
         display_name: storyText.slice(0, 20) || "未命名",
         script_content: storyText,
         style,
       });
+
+      // 将任务添加到 store，以便在任务列表中追踪
+      if (response?.operation_name) {
+        addOperation(response.operation_name, { type: "story_create" });
+      } else {
+        console.warn("Create story response missing operation_name:", response);
+      }
 
       // 成功后显示提示并清空表单
       toast.show({

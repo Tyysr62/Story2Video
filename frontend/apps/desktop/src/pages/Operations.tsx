@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -14,18 +14,29 @@ import {
   ButtonText,
   Pressable,
 } from "@story2video/ui";
-import { Clock, CheckCircle, XCircle, Loader, Film, Image, Video } from "lucide-react";
-import { mockOperations, OperationStatus, OperationType } from "@story2video/core";
+import { Clock, CheckCircle, XCircle, Loader, Film, Image, Video, RefreshCw } from "lucide-react";
+import { useOperationsWithPolling, OperationStatus, OperationType } from "@story2video/core";
 import type { Operation } from "@story2video/core";
 
 const Operations = () => {
   const navigate = useNavigate();
-  const [operations] = useState<Operation[]>(mockOperations);
   const [filter, setFilter] = useState<OperationStatus | "all">("all");
 
-  const filteredOperations = filter === "all" 
-    ? operations 
-    : operations.filter(op => op.status === filter);
+  // 使用轮询 hook 获取真实数据
+  const {
+    operations,
+    isLoading,
+    pendingCount,
+    refetchAll,
+  } = useOperationsWithPolling({
+    pollInterval: 5000, // 5秒轮询
+  });
+
+  // 根据筛选条件过滤任务
+  const filteredOperations = useMemo(() => {
+    if (filter === "all") return operations;
+    return operations.filter((op) => op.status === filter);
+  }, [operations, filter]);
 
   // 点击已完成的任务跳转到对应页面
   const handleOperationClick = (op: Operation) => {
@@ -99,12 +110,26 @@ const Operations = () => {
   return (
     <Box flex={1} bg="$backgroundLight0" p="$8">
       <VStack space="lg" flex={1}>
-        <VStack space="xs">
-          <Heading size="2xl">任务列表</Heading>
-          <Text size="sm" color="$textLight500">
-            查看所有任务的执行状态和进度
-          </Text>
-        </VStack>
+        <HStack justifyContent="space-between" alignItems="center">
+          <VStack space="xs">
+            <Heading size="2xl">任务列表</Heading>
+            <Text size="sm" color="$textLight500">
+              查看所有任务的执行状态和进度
+              {pendingCount > 0 && ` (${pendingCount} 个进行中)`}
+            </Text>
+          </VStack>
+          <Button
+            size="sm"
+            variant="outline"
+            action="secondary"
+            onPress={refetchAll}
+            disabled={isLoading}
+            className="rounded-full"
+          >
+            <RefreshCw size={16} />
+            <ButtonText ml="$1">刷新</ButtonText>
+          </Button>
+        </HStack>
 
         {/* Filter Buttons */}
         <HStack space="sm" flexWrap="wrap">
@@ -155,19 +180,30 @@ const Operations = () => {
           </Button>
         </HStack>
 
+        {/* Loading State */}
+        {isLoading && operations.length === 0 && (
+          <Box flex={1} alignItems="center" justifyContent="center">
+            <Spinner size="large" />
+            <Text mt="$4" color="$textLight400">加载中...</Text>
+          </Box>
+        )}
+
         {/* Operations List */}
-        <ScrollView flex={1} showsVerticalScrollIndicator={false}>
-          <VStack space="md" pb="$4">
-            {filteredOperations.length === 0 ? (
-              <Box p="$8" alignItems="center">
-                <Text color="$textLight400">暂无任务</Text>
-              </Box>
-            ) : (
-              filteredOperations.map((op) => {
-                const statusInfo = getStatusBadge(op.status);
-                const TypeIcon = getTypeIcon(op.type);
-                const StatusIcon = statusInfo.icon;
-                const isClickable = op.status === OperationStatus.SUCCEEDED;
+        {(!isLoading || operations.length > 0) && (
+          <ScrollView flex={1} showsVerticalScrollIndicator={false}>
+            <VStack space="md" pb="$4">
+              {filteredOperations.length === 0 ? (
+                <Box p="$8" alignItems="center">
+                  <Text color="$textLight400">
+                    {operations.length === 0 ? "暂无任务，创建故事后任务将显示在这里" : "没有符合筛选条件的任务"}
+                  </Text>
+                </Box>
+              ) : (
+                filteredOperations.map((op) => {
+                  const statusInfo = getStatusBadge(op.status);
+                  const TypeIcon = getTypeIcon(op.type);
+                  const StatusIcon = statusInfo.icon;
+                  const isClickable = op.status === OperationStatus.SUCCEEDED;
 
                 return (
                   <Pressable
@@ -218,7 +254,7 @@ const Operations = () => {
                           action={statusInfo.action}
                         >
                           <HStack space="xs" alignItems="center" px="$2">
-                            {op.status === "running" ? (
+                            {op.status === "running" || op.status === "queued" ? (
                               <Spinner size="small" color="$white" />
                             ) : (
                               <StatusIcon size={14} color="white" />
@@ -277,9 +313,10 @@ const Operations = () => {
                   </Pressable>
                 );
               })
-            )}
-          </VStack>
-        </ScrollView>
+              )}
+            </VStack>
+          </ScrollView>
+        )}
       </VStack>
     </Box>
   );

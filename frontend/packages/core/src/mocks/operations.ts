@@ -95,7 +95,7 @@ export const mockOperations: Operation[] = [
     shot_id: "00000000-0000-0000-0000-000000000000",
     type: OperationType.STORY_CREATE,
     payload: {
-      style: "anime",
+      style: "animation",
       display_name: "测试进行中",
       script_content: "正在生成的故事",
     },

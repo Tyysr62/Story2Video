@@ -37,6 +37,7 @@ import {
   useUpdateShot,
   useRegenerateShot,
   useOperationQuery,
+  useOperationsStore,
   extractOperationId,
   ShotStatus,
   getTransitionOptions,
@@ -118,6 +119,12 @@ const ShotDetail = () => {
       if (result?.operation_name) {
         const opId = extractOperationId(result.operation_name);
         setRegenerateOperationId(opId);
+        // 将任务添加到 store，以便在任务列表中追踪
+        useOperationsStore.getState().addOperation(result.operation_name, {
+          storyId,
+          shotId: id,
+          type: "shot_regen",
+        });
       }
     } catch (err: any) {
       toast.show({

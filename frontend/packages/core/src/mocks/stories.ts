@@ -44,7 +44,7 @@ export const mockStories: Story[] = [
     updated_at: "2025-12-01T19:41:13.032344+08:00",
     content: "小狗找妈妈的故事",
     title: "温馨短片",
-    style: StoryStyle.ANIME,
+    style: StoryStyle.ANIMATION,
     duration: 90,
     status: StoryStatus.READY,
     timeline: null,

@@ -22,6 +22,7 @@ import {
   useShots,
   useCompileVideo,
   useOperationQuery,
+  useOperationsStore,
   extractOperationId,
   ShotStatus,
 } from "@story2video/core";
@@ -98,6 +99,11 @@ const Storyboard = () => {
       if (result?.operation_name) {
         const opId = extractOperationId(result.operation_name);
         setCompileOperationId(opId);
+        // 将任务添加到 store，以便在任务列表中追踪
+        useOperationsStore.getState().addOperation(result.operation_name, {
+          storyId,
+          type: "video_render",
+        });
       }
     } catch (err: any) {
       toast.show({

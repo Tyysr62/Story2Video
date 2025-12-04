@@ -20,80 +20,65 @@ import {
   Text,
   Spinner,
   ChevronDownIcon,
-  useToast,
-  Toast,
-  ToastTitle,
-  ToastDescription,
+  AlertDialog,
+  AlertDialogBackdrop,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogBody,
+  AlertDialogFooter,
 } from "@story2video/ui";
 import {
   StoryStyle,
   useCreateStory,
+  useOperationsStore,
   getStoryStyleOptions,
   getStoryStylePlaceholder,
   getStoryStyleLabel,
 } from "@story2video/core";
 
 const Create = () => {
-  // 用户输入的脚本文本（将作为创建故事的脚本内容 script_content）
   const [storyText, setStoryText] = useState("");
-  // 风格（与后端枚举保持一致：movie / anime / realistic）
   const [style, setStyle] = useState<StoryStyle>(StoryStyle.MOVIE);
-  const toast = useToast();
+  
+  // AlertDialog 状态
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertType, setAlertType] = useState<"success" | "error">("success");
+  const [alertMessage, setAlertMessage] = useState("");
 
-  // 创建故事 mutation
   const createStoryMutation = useCreateStory();
+  const addOperation = useOperationsStore((state) => state.addOperation);
 
-  // 点击创建故事
+  const showAlertDialog = (type: "success" | "error", message: string) => {
+    setAlertType(type);
+    setAlertMessage(message);
+    setShowAlert(true);
+  };
+
   const handleGenerate = async () => {
-    // 基础校验：脚本文本不能为空
     if (!storyText.trim()) {
-      toast.show({
-        placement: "top",
-        render: ({ id }) => (
-          <Toast action="error" variant="accent" nativeID={id}>
-            <ToastTitle>错误</ToastTitle>
-            <ToastDescription>请输入故事文本</ToastDescription>
-          </Toast>
-        ),
-      });
+      showAlertDialog("error", "请输入故事文本");
       return;
     }
 
     try {
-      // 组装请求体（根据接口文档，直接发送而非包裹在 story 对象中）
-      await createStoryMutation.mutateAsync({
+      const response = await createStoryMutation.mutateAsync({
         display_name: storyText.slice(0, 20) || "未命名",
         script_content: storyText,
         style,
       });
 
-      // 成功后显示提示并清空表单
-      toast.show({
-        placement: "top",
-        render: ({ id }) => (
-          <Toast action="success" variant="accent" nativeID={id}>
-            <ToastTitle>成功</ToastTitle>
-            <ToastDescription>已成功添加到队列，可在任务列表查看进度</ToastDescription>
-          </Toast>
-        ),
-      });
+      if (response?.operation_name) {
+        addOperation(response.operation_name, { type: "story_create" });
+      } else {
+        console.warn("Create story response missing operation_name:", response);
+      }
 
-      // 清空表单，允许用户继续创建新故事
+      showAlertDialog("success", "已成功添加到队列，可在任务列表查看进度");
       setStoryText("");
       setStyle(StoryStyle.MOVIE);
     } catch (error: any) {
       console.error("Create story error:", error);
-      toast.show({
-        placement: "top",
-        render: ({ id }) => (
-          <Toast action="error" variant="accent" nativeID={id}>
-            <ToastTitle>错误</ToastTitle>
-            <ToastDescription>
-              {error?.message || "创建故事失败，请检查后端服务是否运行"}
-            </ToastDescription>
-          </Toast>
-        ),
-      });
+      showAlertDialog("error", error?.message || "创建故事失败，请检查后端服务是否运行");
     }
   };
 
@@ -115,9 +100,7 @@ const Create = () => {
       >
         <VStack space="xs">
           <Heading size="2xl">创建新故事</Heading>
-          <Text size="sm" color="$textLight500">
-            输入故事详情以生成视频分镜。
-          </Text>
+          <Text size="sm" color="$textLight500">输入故事详情以生成视频分镜。</Text>
         </VStack>
 
         <VStack space="md">
@@ -168,16 +151,29 @@ const Create = () => {
           onPress={handleGenerate}
           className="rounded-full"
         >
-          {isLoading && <Spinner color="$white" mr="$2" />}
-          <ButtonText>
-            {isLoading ? "提交中..." : "生成故事"}
-          </ButtonText>
+          {isLoading ? (
+            <>
+              <Spinner color="$white" mr="$2" />
+              <ButtonText>提交中...</ButtonText>
+            </>
+          ) : (
+            <ButtonText>生成故事</ButtonText>
+          )}
         </Button>
 
-        <Text size="sm" color="$textLight400" textAlign="center">
-          提交后可在「任务列表」中查看生成进度
-        </Text>
+        <Text size="sm" color="$textLight400" textAlign="center">提交后可在「任务列表」中查看生成进度</Text>
       </VStack>
+
+      <AlertDialog isOpen={showAlert} onClose={() => setShowAlert(false)}>
+        <AlertDialogBackdrop />
+        <AlertDialogContent>
+          <AlertDialogHeader><Heading size="lg">{alertType === "success" ? "成功" : "错误"}</Heading></AlertDialogHeader>
+          <AlertDialogBody><Text>{alertMessage}</Text></AlertDialogBody>
+          <AlertDialogFooter>
+            <Button variant="outline" action="secondary" onPress={() => setShowAlert(false)}><ButtonText>确定</ButtonText></Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Box>
   );
 };

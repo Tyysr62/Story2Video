@@ -33,9 +33,7 @@ const NavItem = ({ to, icon: IconComp, label, isActive, isMobile }: NavItemProps
             mt="$1"
             fontWeight={isActive ? "$bold" : "$normal"}
             color={isActive ? "$primary500" : "$textLight500"}
-          >
-            {label}
-          </Text>
+          >{label}</Text>
         </VStack>
       </Link>
     );
@@ -59,9 +57,7 @@ const NavItem = ({ to, icon: IconComp, label, isActive, isMobile }: NavItemProps
           ml="$3"
           fontWeight={isActive ? "$bold" : "$normal"}
           color={isActive ? "$textLight900" : "$textLight700"}
-        >
-          {label}
-        </Text>
+        >{label}</Text>
       </HStack>
     </Link>
   );
@@ -91,18 +87,11 @@ const Sidebar = () => {
     >
       <VStack space="lg">
         <HStack alignItems="center" space="sm" px="$2" mb="$4">
-          <Box
-            w="$8"
-            h="$8"
-            bg="$primary500"
-            borderRadius="$md"
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Text color="white" fontWeight="bold">
-              S2V
-            </Text>
-          </Box>
+          <img
+            src="/logo.png"
+            alt="Logo"
+            style={{ width: 32, height: 32, borderRadius: 6 }}
+          />
           <Heading size="md">Story2Video</Heading>
         </HStack>
 
@@ -113,9 +102,7 @@ const Sidebar = () => {
             color="$textLight400"
             mb="$2"
             px="$2"
-          >
-            菜单
-          </Text>
+          >菜单</Text>
           <NavItem to="/" icon={Home} label="创建故事" isActive={isActive("/")} />
           <NavItem to="/operations" icon={ListTodo} label="任务列表" isActive={isActive("/operations") || isActive("/storyboard") || isActive("/shot") || isActive("/preview")} />
           <NavItem to="/assets" icon={Library} label="素材库" isActive={isActive("/assets")} />

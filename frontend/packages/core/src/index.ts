@@ -30,8 +30,12 @@ export type { MockHttpClientOptions } from "./api/clients/mock-client";
 
 // Hooks
 export * from "./hooks/useOperation";
+export * from "./hooks/useOperations";
 export * from "./hooks/useStories";
 export * from "./hooks/useShots";
+
+// Stores
+export * from "./stores/operations-store";
 
 // Mocks
 export * from "./mocks";

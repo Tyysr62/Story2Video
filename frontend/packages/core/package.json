@@ -23,10 +23,10 @@
     }
   },
   "peerDependencies": {
-    "react": "^18.0.0 || ^19.0.0",
     "@tanstack/react-query": "^5.0.0",
+    "@tauri-apps/plugin-http": "^2.5.4",
     "axios": "^1.13.2",
-    "@tauri-apps/plugin-http": "^2.5.4"
+    "react": "^18.0.0 || ^19.0.0"
   },
   "peerDependenciesMeta": {
     "axios": {
@@ -37,6 +37,7 @@
     }
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.90.11"
+    "@tanstack/react-query": "^5.90.11",
+    "zustand": "^5.0.9"
   }
 }

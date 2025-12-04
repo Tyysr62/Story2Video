@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Heading,
@@ -14,18 +15,40 @@ import {
   ScrollView,
   Badge,
   BadgeText,
+  Spinner,
+  Button,
+  ButtonText,
+  Pressable,
 } from "@story2video/ui";
 import { useMediaQuery } from "../hooks/useMediaQuery";
-import { mockStories, StoryStatus } from "@story2video/core";
+import { useStories, StoryStatus, Story } from "@story2video/core";
 
 const Assets = () => {
   const [search, setSearch] = useState("");
   const isMobile = useMediaQuery("(max-width: 767px)");
+  const navigate = useNavigate();
 
-  // 使用 mockStories 作为数据源
-  const filteredAssets = mockStories.filter((story) =>
-    story.title.toLowerCase().includes(search.toLowerCase())
-  );
+  // 使用 useStories hook 获取真实数据
+  const { data: storiesData, isLoading, error, refetch } = useStories();
+
+  // 处理点击素材项目：根据 video_url 是否为空决定跳转页面
+  const handleAssetClick = useCallback((story: Story) => {
+    if (story.video_url) {
+      // 有视频，跳转到预览页面
+      navigate(`/preview?storyId=${story.id}`);
+    } else {
+      // 无视频，跳转到分镜编辑页面
+      navigate(`/storyboard?storyId=${story.id}`);
+    }
+  }, [navigate]);
+  const stories = storiesData?.items ?? [];
+
+  // 根据搜索过滤
+  const filteredAssets = useMemo(() => {
+    return stories.filter((story) =>
+      story.title.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [stories, search]);
 
   // 格式化日期
   const formatDate = (dateStr: string) => {
@@ -50,6 +73,28 @@ const Assets = () => {
         return { action: "muted" as const, label: status };
     }
   };
+
+  // 加载状态
+  if (isLoading) {
+    return (
+      <Box flex={1} bg="$backgroundLight0" justifyContent="center" alignItems="center">
+        <Spinner size="large" />
+        <Text mt="$4" color="$textLight400">加载中...</Text>
+      </Box>
+    );
+  }
+
+  // 错误状态
+  if (error) {
+    return (
+      <Box flex={1} bg="$backgroundLight0" justifyContent="center" alignItems="center" p="$4">
+        <Text color="$error500" mb="$4">加载素材库失败</Text>
+        <Button onPress={() => refetch()}>
+          <ButtonText>重试</ButtonText>
+        </Button>
+      </Box>
+    );
+  }
 
   // Mobile layout: Full width cards in a scrollable list
   if (isMobile) {
@@ -79,37 +124,38 @@ const Assets = () => {
               {filteredAssets.map((story) => {
                 const statusInfo = getStatusBadge(story.status);
                 return (
-                  <Box
-                    key={story.id}
-                    bg="$white"
-                    borderRadius="$lg"
-                    borderWidth={1}
-                    borderColor="$borderLight200"
-                    overflow="hidden"
-                    shadowColor="$black"
-                    shadowOffset={{ width: 0, height: 2 }}
-                    shadowOpacity={0.1}
-                    shadowRadius={4}
-                    elevation={2}
-                  >
-                    <Image
-                      source={{ uri: story.cover_url || `https://placehold.co/600x400/png?text=${encodeURIComponent(story.title)}` }}
-                      alt={story.title}
-                      h={150}
-                      w="100%"
-                      resizeMode="cover"
-                    />
-                    <VStack p="$3" space="xs">
-                      <HStack justifyContent="space-between" alignItems="center">
-                        <Heading size="sm" isTruncated flex={1}>{story.title}</Heading>
-                        <Badge size="sm" variant="solid" borderRadius="$full" action={statusInfo.action}>
-                          <BadgeText>{statusInfo.label}</BadgeText>
-                        </Badge>
-                      </HStack>
-                      <Text size="xs" color="$textLight400">创建: {formatDate(story.created_at)}</Text>
-                      <Text size="xs" color="$textLight500" numberOfLines={1}>{story.content}</Text>
-                    </VStack>
-                  </Box>
+                  <Pressable key={story.id} onPress={() => handleAssetClick(story)}>
+                    <Box
+                      bg="$white"
+                      borderRadius="$lg"
+                      borderWidth={1}
+                      borderColor="$borderLight200"
+                      overflow="hidden"
+                      shadowColor="$black"
+                      shadowOffset={{ width: 0, height: 2 }}
+                      shadowOpacity={0.1}
+                      shadowRadius={4}
+                      elevation={2}
+                    >
+                      <Image
+                        source={{ uri: story.cover_url || `https://placehold.co/600x400/png?text=${encodeURIComponent(story.title)}` }}
+                        alt={story.title}
+                        h={150}
+                        w="100%"
+                        resizeMode="cover"
+                      />
+                      <VStack p="$3" space="xs">
+                        <HStack justifyContent="space-between" alignItems="center">
+                          <Heading size="sm" isTruncated flex={1}>{story.title}</Heading>
+                          <Badge size="sm" variant="solid" borderRadius="$full" action={statusInfo.action}>
+                            <BadgeText>{statusInfo.label}</BadgeText>
+                          </Badge>
+                        </HStack>
+                        <Text size="xs" color="$textLight400">创建: {formatDate(story.created_at)}</Text>
+                        <Text size="xs" color="$textLight500" numberOfLines={1}>{story.content}</Text>
+                      </VStack>
+                    </Box>
+                  </Pressable>
                 );
               })}
             </VStack>
@@ -153,39 +199,40 @@ const Assets = () => {
           {filteredAssets.map((story) => {
             const statusInfo = getStatusBadge(story.status);
             return (
-              <Box
-                key={story.id}
-                width={300}
-                bg="$white"
-                borderRadius="$lg"
-                borderWidth={1}
-                borderColor="$borderLight200"
-                overflow="hidden"
-                mb="$4"
-                shadowColor="$black"
-                shadowOffset={{ width: 0, height: 2 }}
-                shadowOpacity={0.1}
-                shadowRadius={4}
-                elevation={2}
-              >
-                <Image
-                  source={{ uri: story.cover_url || `https://placehold.co/600x400/png?text=${encodeURIComponent(story.title)}` }}
-                  alt={story.title}
-                  h={160}
-                  w="100%"
-                  resizeMode="cover"
-                />
-                <VStack p="$4" space="xs">
-                  <HStack justifyContent="space-between" alignItems="center">
-                    <Heading size="sm" isTruncated flex={1}>{story.title}</Heading>
-                    <Badge size="sm" variant="solid" borderRadius="$full" action={statusInfo.action}>
-                      <BadgeText>{statusInfo.label}</BadgeText>
-                    </Badge>
-                  </HStack>
-                  <Text size="xs" color="$textLight400">创建: {formatDate(story.created_at)}</Text>
-                  <Text size="xs" color="$textLight500" numberOfLines={1}>{story.content}</Text>
-                </VStack>
-              </Box>
+              <Pressable key={story.id} onPress={() => handleAssetClick(story)}>
+                <Box
+                  width={300}
+                  bg="$white"
+                  borderRadius="$lg"
+                  borderWidth={1}
+                  borderColor="$borderLight200"
+                  overflow="hidden"
+                  mb="$4"
+                  shadowColor="$black"
+                  shadowOffset={{ width: 0, height: 2 }}
+                  shadowOpacity={0.1}
+                  shadowRadius={4}
+                  elevation={2}
+                >
+                  <Image
+                    source={{ uri: story.cover_url || `https://placehold.co/600x400/png?text=${encodeURIComponent(story.title)}` }}
+                    alt={story.title}
+                    h={160}
+                    w="100%"
+                    resizeMode="cover"
+                  />
+                  <VStack p="$4" space="xs">
+                    <HStack justifyContent="space-between" alignItems="center">
+                      <Heading size="sm" isTruncated flex={1}>{story.title}</Heading>
+                      <Badge size="sm" variant="solid" borderRadius="$full" action={statusInfo.action}>
+                        <BadgeText>{statusInfo.label}</BadgeText>
+                      </Badge>
+                    </HStack>
+                    <Text size="xs" color="$textLight400">创建: {formatDate(story.created_at)}</Text>
+                    <Text size="xs" color="$textLight500" numberOfLines={1}>{story.content}</Text>
+                  </VStack>
+                </Box>
+              </Pressable>
             );
           })}
         </HStack>
