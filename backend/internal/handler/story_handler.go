@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"story2video-backend/internal/global"
+	"story2video-backend/internal/model"
 	"story2video-backend/internal/service"
 )
 
@@ -156,7 +157,6 @@ func (h *StoryHandler) List(c *gin.Context) {
 		endPtr = &endOfDay
 	}
 
-	// 只有当请求中包含任意过滤/分页参数时才使用带过滤的 ListWithFilter
 	needFilter := false
 	for _, k := range []string{"keyword", "title", "page_size", "page_token", "start_time", "end_time"} {
 		if _, ok := rawQ[k]; ok {
@@ -164,48 +164,43 @@ func (h *StoryHandler) List(c *gin.Context) {
 			break
 		}
 	}
+
+	opts := service.StoryListOptions{
+		Keyword:   keyword,
+		StartTime: startPtr,
+		EndTime:   endPtr,
+	}
+	if titleParam != "" {
+		opts.ExactTitle = titleParam
+	}
+
+	paginated := false
 	if needFilter {
-		var exactTitlePtr *string
-		if titleParam != "" {
-			exactTitlePtr = &titleParam
-		}
-		stories, total, err := h.story.ListWithFilter(c.Request.Context(), userID, keyword, pageSize, offset, startPtr, endPtr, exactTitlePtr)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		items := make([]gin.H, 0, len(stories))
-		for _, st := range stories {
-			items = append(items, gin.H{
-				"story_id":      st.ID,
-				"display_name":  st.Title,
-				"cover_url":     st.CoverURL,
-				"create_time":   st.CreatedAt,
-				"compile_state": mapStoryStatusToGenState(st.Status),
-			})
-		}
+		paginated = true
 		if pageSize <= 0 {
 			pageSize = 10
 		}
-		nextOffset := offset + len(stories)
-		var nextToken string
-		if int64(nextOffset) < total {
-			nextToken = strconv.Itoa(nextOffset)
-		}
-		c.JSON(http.StatusOK, gin.H{
-			"stories":         items,
-			"next_page_token": nextToken,
-			"items":           items,
-		})
-		return
+		opts.Limit = pageSize
+		opts.Offset = offset
 	}
 
-	stories, err := h.story.List(c.Request.Context(), userID)
+	stories, total, err := h.story.ListStories(c.Request.Context(), userID, opts)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"items": stories})
+	items := buildStoryListItems(stories)
+	nextToken := ""
+	if paginated {
+		nextOffset := offset + len(stories)
+		if int64(nextOffset) < total {
+			nextToken = strconv.Itoa(nextOffset)
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"items":           items,
+		"next_page_token": nextToken,
+	})
 }
 
 func (h *StoryHandler) Get(c *gin.Context) {
@@ -274,4 +269,19 @@ func mapStoryStatusToGenState(status string) string {
 	default:
 		return "STATE_UNSPECIFIED"
 	}
+}
+
+func buildStoryListItems(stories []model.Story) []gin.H {
+	items := make([]gin.H, 0, len(stories))
+	for _, st := range stories {
+		items = append(items, gin.H{
+			"story_id":      st.ID,
+			"display_name":  st.Title,
+			"cover_url":     st.CoverURL,
+			"create_time":   st.CreatedAt,
+			"compile_state": mapStoryStatusToGenState(st.Status),
+			"video_url":     st.VideoURL,
+		})
+	}
+	return items
 }

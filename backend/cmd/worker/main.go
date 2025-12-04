@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -126,6 +127,7 @@ func (w *worker) handleMessage(ctx context.Context, value []byte) error {
 
 	if err != nil {
 		_ = service.UpdateOperationFailure(ctx, w.data, opID, err)
+		w.handleJobFailure(ctx, job)
 		return err
 	}
 
@@ -305,20 +307,74 @@ func (w *worker) upsertShot(ctx context.Context, job service.StoryJobMessage, sh
 }
 
 func (w *worker) updateShot(ctx context.Context, existing *model.Shot, shot *modelpb.ShotResult, details string) error {
+	updates := map[string]interface{}{
+		"status": global.ShotDone,
+	}
+
+	setIfNotEmpty := func(key, value string) {
+		if strings.TrimSpace(value) != "" {
+			updates[key] = value
+		}
+	}
+
+	setIfNotEmpty("title", shot.Title)
+	setIfNotEmpty("description", shot.Description)
+	setIfNotEmpty("narration", shot.Narration)
+	setIfNotEmpty("type", shot.Type)
+	setIfNotEmpty("transition", shot.Transition)
+	setIfNotEmpty("voice", shot.Voice)
+	setIfNotEmpty("image_url", shot.ImageUrl)
+	setIfNotEmpty("bgm", shot.Bgm)
+
+	if strings.TrimSpace(details) != "" {
+		updates["details"] = details
+	}
+
 	return w.data.DB.WithContext(ctx).
 		Model(existing).
-		Updates(map[string]interface{}{
-			"title":       shot.Title,
-			"description": shot.Description,
-			"details":     details,
-			"narration":   shot.Narration,
-			"type":        shot.Type,
-			"transition":  shot.Transition,
-			"voice":       shot.Voice,
-			"status":      global.ShotDone,
-			"image_url":   shot.ImageUrl,
-			"bgm":         shot.Bgm,
-		}).Error
+		Updates(updates).Error
+}
+
+func (w *worker) handleJobFailure(ctx context.Context, job service.StoryJobMessage) {
+	switch job.Payload.Action {
+	case "regen_shot":
+		if err := w.updateShotStatus(ctx, job.Payload.ShotID, job.StoryID, global.ShotFail); err != nil {
+			w.logger.Warn("mark shot failed", zap.Error(err), zap.String("shot_id", job.Payload.ShotID), zap.String("story_id", job.StoryID))
+		}
+	default:
+		if err := w.updateStoryStatus(ctx, job.StoryID, global.StoryFail); err != nil {
+			w.logger.Warn("mark story failed", zap.Error(err), zap.String("story_id", job.StoryID))
+		}
+	}
+}
+
+func (w *worker) updateStoryStatus(ctx context.Context, storyID string, status string) error {
+	id, err := uuid.Parse(storyID)
+	if err != nil {
+		return err
+	}
+	return w.data.DB.WithContext(ctx).
+		Model(&model.Story{}).
+		Where("id = ?", id).
+		Update("status", status).Error
+}
+
+func (w *worker) updateShotStatus(ctx context.Context, shotID string, storyID string, status string) error {
+	if strings.TrimSpace(shotID) == "" {
+		return errors.New("empty shot_id")
+	}
+	sid, err := uuid.Parse(shotID)
+	if err != nil {
+		return err
+	}
+	storyUUID, err := uuid.Parse(storyID)
+	if err != nil {
+		return err
+	}
+	return w.data.DB.WithContext(ctx).
+		Model(&model.Shot{}).
+		Where("id = ? AND story_id = ?", sid, storyUUID).
+		Update("status", status).Error
 }
 
 func newKafkaReader(cfg *conf.Config) *kafka.Reader {
@@ -351,7 +407,7 @@ func (w *worker) ensureStoryCover(ctx context.Context, storyID uuid.UUID) error 
 	if err := w.data.DB.WithContext(ctx).
 		Select("image_url").
 		Where("story_id = ? AND image_url <> ''", storyID).
-		Order("sequence ASC").
+		Order(service.ShotSequenceOrderClause).
 		First(&shot).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil
