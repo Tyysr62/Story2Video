@@ -34,10 +34,22 @@ export default defineConfig(({ mode }) => ({
       "@legendapp/motion",
       "@gluestack-style/legend-motion-animation-driver",
     ],
+    exclude: [
+      "nativewind",
+      "react-native-css-interop",
+    ],
     esbuildOptions: {
       resolveExtensions: extensions,
       // 许多 RN 库是以 CommonJS 发布且包含 JSX 的，需要显式启用 JSX loader
       loader: { ".js": "jsx" },
+    },
+  },
+  build: {
+    rollupOptions: {
+      external: [
+        "nativewind",
+        "react-native-css-interop",
+      ],
     },
   },
 }));

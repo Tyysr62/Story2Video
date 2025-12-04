@@ -259,7 +259,7 @@ const ShotDetail = () => {
         </Button>
       </HStack>
 
-      <HStack flex={1} space="xl" flexDirection={{ base: "column", md: "row" }}>
+      <HStack flex={1} space="xl" flexDirection="row">
         {/* Left Column: Image Preview */}
         <VStack flex={1} space="md">
           <Box
@@ -342,9 +342,7 @@ const ShotDetail = () => {
             <Select selectedValue={transition} initialLabel={getTransitionLabel(transition)} onValueChange={setTransition}>
               <SelectTrigger variant="outline" size="md">
                   <SelectInput placeholder={getTransitionPlaceholder()} />
-                <SelectIcon mr="$3">
-                  <Icon as={ChevronDownIcon} />
-                </SelectIcon>
+                <SelectIcon as={ChevronDownIcon} mr="$3" />
               </SelectTrigger>
               <SelectPortal>
                 <SelectBackdrop />
