@@ -1,0 +1,10 @@
+{
+  "buildCommand": "pnpm turbo run build --filter=web",
+  "outputDirectory": "apps/web/dist",
+  "rewrites": [
+    {
+      "source": "/((?!v1/).*)",
+      "destination": "/index.html"
+    }
+  ]
+}

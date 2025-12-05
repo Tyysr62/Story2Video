@@ -1,6 +1,7 @@
 {
   "cli": {
-    "requireCommit": true
+    "requireCommit": true,
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
@@ -24,7 +25,9 @@
       "autoIncrement": true,
       "node": "20.10.0",
       "env": {
-        "EXPO_USE_PNPM": "1"
+        "EXPO_USE_PNPM": "1",
+        "EXPO_PUBLIC_API_BASE_URL": "https://api.maredevi.fun",
+        "EXPO_PUBLIC_USE_MOCK": "false"
       }
     }
   },
