@@ -36,7 +36,6 @@ import type {
   RegenerateShotRequest,
   OperationCreatedResponse,
   StoryStyle,
-  ShotStatus,
 } from "../types/domain";
 import { StoryStatus } from "../types/domain";
 
