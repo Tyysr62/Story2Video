@@ -136,8 +136,41 @@ export const mockListStoriesResponse: ListStoriesResponse = {
 };
 
 /**
- * 根据 ID 获取 Mock 故事
+ * 将 StoryStatus 转换为后端的 compile_state 格式
  */
-export function getMockStory(storyId: string): Story | undefined {
-  return mockStories.find((s) => s.id === storyId);
+function mapStatusToCompileState(status: StoryStatus): string {
+  switch (status) {
+    case StoryStatus.GENERATING:
+      return "STATE_RUNNING";
+    case StoryStatus.READY:
+      return "STATE_SUCCEEDED";
+    case StoryStatus.FAILED:
+      return "STATE_FAILED";
+    default:
+      return "STATE_RUNNING";
+  }
+}
+
+/**
+ * 根据 ID 获取 Mock 故事（返回后端格式的响应）
+ * 后端 GET /v1/stories/{storyId} 返回 { story: {...} } 格式
+ */
+export function getMockStory(storyId: string): { story: any } | undefined {
+  const story = mockStories.find((s) => s.id === storyId);
+  if (!story) return undefined;
+  
+  // 转换为后端响应格式
+  return {
+    story: {
+      story_id: story.id,
+      display_name: story.title,
+      script_content: story.content,
+      style: story.style,
+      video_url: story.video_url,
+      compile_state: mapStatusToCompileState(story.status),
+      cover_url: story.cover_url,
+      create_time: story.created_at,
+      shots: [], // Mock 空分镜列表
+    }
+  };
 }

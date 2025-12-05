@@ -36,7 +36,83 @@ import type {
   RegenerateShotRequest,
   OperationCreatedResponse,
   StoryStyle,
+  ShotStatus,
 } from "../types/domain";
+import { StoryStatus } from "../types/domain";
+
+/**
+ * 后端返回的故事详情响应格式（GET /v1/stories/{storyId}）
+ * 后端包装在 { story: ... } 中
+ */
+interface BackendStoryDetailResponse {
+  story: {
+    story_id: string;
+    display_name: string;
+    script_content: string;
+    style: StoryStyle;
+    video_url: string;
+    compile_state: string;
+    cover_url: string;
+    create_time: string;
+    shots: BackendShotItem[];
+  };
+}
+
+/**
+ * 后端返回的分镜项格式
+ */
+interface BackendShotItem {
+  shot_id: string;
+  index: number;
+  title: string;
+  description: string;
+  details: string;
+  narration: string;
+  type: string;
+  transition: string;
+  voice: string;
+  image_url: string;
+  bgm: string;
+  status: string;
+}
+
+/**
+ * 将后端的 compile_state 转换为前端的 StoryStatus
+ */
+function mapCompileStateToStatus(compileState: string): StoryStatus {
+  switch (compileState) {
+    case "STATE_PENDING":
+      return StoryStatus.GENERATING;
+    case "STATE_RUNNING":
+      return StoryStatus.GENERATING;
+    case "STATE_SUCCEEDED":
+      return StoryStatus.READY;
+    case "STATE_FAILED":
+      return StoryStatus.FAILED;
+    default:
+      return StoryStatus.GENERATING;
+  }
+}
+
+/**
+ * 将后端返回的故事详情转换为前端 Story 类型
+ */
+function transformBackendStoryToStory(backend: BackendStoryDetailResponse["story"]): Story {
+  return {
+    id: backend.story_id,
+    user_id: "", // 后端详情接口未返回 user_id
+    created_at: backend.create_time,
+    updated_at: backend.create_time, // 后端未返回 updated_at，使用 create_time
+    content: backend.script_content,
+    title: backend.display_name,
+    style: backend.style,
+    duration: 0, // 后端未返回 duration
+    status: mapCompileStateToStatus(backend.compile_state),
+    timeline: null,
+    cover_url: backend.cover_url,
+    video_url: backend.video_url,
+  };
+}
 
 /** 故事列表查询参数 */
 export interface ListStoriesParams {
@@ -170,9 +246,11 @@ export function createApi(client: IHttpClient, basePath = "/v1"): ApiSDK {
       return client.get<ListStoriesResponse>(`${basePath}/stories`, merged);
     },
 
-    get: (storyId, config) => {
+    get: async (storyId, config) => {
       const sid = encode(storyId);
-      return client.get<Story>(`${basePath}/stories/${sid}`, config);
+      // 后端返回 { story: {...} }，需要解包并转换字段
+      const response = await client.get<BackendStoryDetailResponse>(`${basePath}/stories/${sid}`, config);
+      return transformBackendStoryToStory(response.story);
     },
 
     compile: (storyId, config) => {
