@@ -1,7 +1,8 @@
 import json
 import requests
-from typing import List, Dict
-from app.core.config import OLLAMA_URL, OUTPUT_DIR
+from typing import List, Dict, Any
+from pathlib import Path
+from app.core.config import OLLAMA_URL, OUTPUT_DIR, DASHSCOPE_API_KEY, DASHSCOPE_API_URL
 from app.core.logging import logger
 
 
@@ -27,7 +28,7 @@ def generate_storyboard_shots(story: str) -> List[Dict]:
         "      \"sequence\": 1, (整数，从1开始)\n"
         "      \"subject\": \"(字符串) 画面主体角色\",\n"
         "      \"detail\": \"(字符串) 包含风格、光线、时序动态、方位的完整中文画面描述\",\n"
-        "      \"narration\": \"(字符串) 不超过30字的中文旁白\"\n"
+        "      \"narration\": \"(字符串) 不超过30字的中文旁白\",\n"
         "      \"camera\": \"(字符串) 运镜关键词\",\n"
         "      \"tone\": \"(字符串) 语音的情感基调 (如：平静、紧张、兴奋)\",\n"
         "      \"sound\": \"(字符串) 中文背景音效描述\"\n"
@@ -129,3 +130,114 @@ def generate_storyboard_shots(story: str) -> List[Dict]:
     except Exception as e:
         logger.error(f"Ollama 调用失败: {e}")
         raise
+
+
+
+
+def call_dashscope_llm(messages: List[Dict[str, str]]) -> str:
+    """调用阿里云 DashScope API，返回生成的文本内容"""
+    if not DASHSCOPE_API_KEY:
+        raise ValueError("DASHSCOPE_API_KEY 未配置")
+    
+    headers = {
+        "Authorization": f"Bearer {DASHSCOPE_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "model": "qwen-plus-latest",
+        "messages": messages,
+        "temperature": 0.7,
+        "max_tokens": 2048
+    }
+    
+    logger.info(f"调用 DashScope API, 消息长度: {len(str(messages))}")
+    
+    attempts = 0
+    max_attempts = 3
+    last_error = None
+    
+    while attempts < max_attempts:
+        try:
+            response = requests.post(
+                DASHSCOPE_API_URL,
+                headers=headers,
+                json=payload,
+                timeout=60
+            )
+            
+            response.raise_for_status()
+            data = response.json()
+            
+            if data.get("choices") and len(data["choices"]) > 0:
+                return data["choices"][0]["message"]["content"].strip()
+            else:
+                raise ValueError(f"DashScope API 返回格式异常: {data}")
+        except requests.exceptions.RequestException as e:
+            attempts += 1
+            last_error = e
+            logger.warning(f"DashScope API 调用失败 (尝试 {attempts}/{max_attempts}): {e}")
+        except (ValueError, KeyError) as e:
+            attempts += 1
+            last_error = e
+            logger.warning(f"DashScope API 响应解析失败 (尝试 {attempts}/{max_attempts}): {e}")
+    
+    logger.error(f"DashScope API 多次调用失败: {last_error}")
+    raise RuntimeError(f"DashScope API 调用失败: {last_error}")
+
+
+def optimize_i2v_response(i2v_json: Dict[str, Any]) -> Dict[str, Any]:
+    """优化图生视频的 JSON 响应，返回优化后的 JSON"""
+    optimized_json = json.loads(json.dumps(i2v_json))  # 深拷贝
+    
+    for shot in optimized_json.get("shots", []):
+        # 1. 将 detail 属性翻译为英文
+        detail = shot.get("detail", "")
+        if detail:
+            logger.info(f"优化 detail: {detail[:50]}...")
+            try:
+                messages = [
+                    {
+                        "role": "system",
+                        "content": "你是一个专业的翻译助手，擅长将中文视频分镜描述翻译成英文。你的任务是生成准确、生动、符合视频生成要求的英文提示词，确保翻译质量高、细节丰富、适合AI视频生成模型使用。"
+                    },
+                    {
+                        "role": "user",
+                        "content": f"请将以下中文视频分镜描述翻译成英文，严格遵循以下要求：\n\n### 翻译要求：\n1. 准确传达原始中文描述的所有细节，包括场景、角色、动作、光线、氛围等\n2. 语言流畅自然，符合英文视频提示词的表达习惯\n3. 使用生动、具体的词汇，适合AI视频生成模型理解\n4. 保持原始描述的结构和逻辑关系\n5. 翻译结果长度适中，不超过300个字符\n\n### 示例：\n中文：'一位穿着红色连衣裙的女孩在海边奔跑，阳光洒在她身上，海浪拍打着沙滩。'\n英文：'A girl in a red dress running on the beach, with sunlight shining on her and waves crashing against the shore.'\n\n### 待翻译内容：\n{detail}\n\n请只输出翻译后的英文内容，不要添加任何解释或说明。"
+                    }  
+                ]
+                english_detail = call_dashscope_llm(messages)
+                shot["detail"] = english_detail
+                logger.info(f"翻译后: {english_detail[:50]}...")
+            except Exception as e:
+                logger.error(f"翻译 detail 失败: {e}")
+        
+        # 2. 优化 narration 属性为指定格式
+        narration = shot.get("narration", "")
+        if narration:
+            logger.info(f"优化 narration: {narration}")
+            try:
+                messages = [
+                    {
+                        "role": "system",
+                        "content": """你是一个专业的AI视频生成提示词专家。你的唯一任务是将输入的JSON分镜转化为符合I2V模型的高质量Prompt。"
+                        **转化规则：**
+                        1. **画面 (Visuals)**: 用英文扩写 `subject` 和 `detail`。加入光影、质感描述，确保画面描述丰富、生动。开头固定用 "The video shows..."。
+                        2. **运镜 (Camera)**: 将 `camera` 融入画面描述。
+                        3. **旁白 (Narration)**: 这是画外音。格式必须是：A voiceover says in Chinese: "保留中文内容"。
+                        4. **音效 (Sound)**: 翻译为英文描述，放在最后。
+                        5. **基调 (Tone)**: 确保形容词符合 `tone` 的情感（如紧张、悲伤）。
+                        """
+                    },
+                    {
+                        "role": "user",
+                        "content": f"请处理这个分镜数据：{json.dumps(shot, ensure_ascii=False)}\n\n"
+                    } 
+                ]
+                optimized_narr = call_dashscope_llm(messages)
+                shot["narration"] = optimized_narr
+                logger.info(f"优化后: {optimized_narr}")
+            except Exception as e:
+                logger.error(f"优化 narration 失败: {e}")
+    
+    return optimized_json

@@ -56,3 +56,8 @@ PIXVERSE_API_KEY: str = os.getenv("PIXVERSE_API_KEY", "sk-707f87c967e6e096ce52f8
 PIXVERSE_UPLOAD_URL: str = os.getenv("PIXVERSE_UPLOAD_URL", "https://app-api.pixverseai.cn/openapi/v2/image/upload")
 PIXVERSE_GENERATE_URL: str = os.getenv("PIXVERSE_GENERATE_URL", "https://app-api.pixverseai.cn/openapi/v2/video/img/generate")
 PIXVERSE_RESULT_URL: str = os.getenv("PIXVERSE_RESULT_URL", "https://app-api.pixverseai.cn/openapi/v2/video/result")
+
+
+# DashScope API 配置
+DASHSCOPE_API_KEY: str = os.getenv("DASHSCOPE_API_KEY", "sk-9a87ad3c14664a3089995a7aa35d0654")
+DASHSCOPE_API_URL: str = os.getenv("DASHSCOPE_API_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions")

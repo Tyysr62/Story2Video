@@ -12,10 +12,10 @@ from app.models.schemas import (
     RenderVideoRequest, RenderVideoResponse,
     OperationStatus, Shot
 )
-from app.services.llm import generate_storyboard_shots
+from app.services.llm import generate_storyboard_shots, optimize_i2v_response
 from app.services.comfy import run_t2i, run_i2v
-from app.services.tts import synthesize_tts
-from app.services.ffmpeg_merge import merge_clip, concat_clips
+from app.services.ffmpeg_merge import concat_clips
+import shutil
 from app.services.oss import upload_to_oss
 from app.storage.repository import (
     update_operation, upsert_story, save_story_shots,
@@ -211,6 +211,16 @@ def render_video(req: RenderVideoRequest, background_tasks: BackgroundTasks):
     def worker_concat():
         shots_list = get_story_shots(req.user_id, req.story_id)
         if shots_list:
+            # 优化图生视频响应
+            logger.info(f"开始优化图生视频响应，共 {len(shots_list)} 个分镜")
+            try:
+                optimized_result = optimize_i2v_response({"shots": shots_list})
+                shots_list = optimized_result.get("shots", shots_list)
+                logger.info("图生视频响应优化完成")
+            except Exception as e:
+                logger.error(f"图生视频响应优化失败: {e}")
+                # 优化失败时使用原始数据继续处理
+                logger.info("使用原始数据继续处理")
             max_workers = (PIXVERSE_MAX_CONCURRENCY if not LOCAL_INFERENCE else len(COMFY_HOSTS_LIST)) or 1
             with ThreadPoolExecutor(max_workers=max_workers or 1) as ex:
                 futures = []
@@ -229,11 +239,8 @@ def render_video(req: RenderVideoRequest, background_tasks: BackgroundTasks):
                 seq = int(s.get('sequence', 0))
                 video_raw = i2v_dir / f"shot_{seq:02d}_raw.mp4"
                 video_final = i2v_dir / f"shot_{seq:02d}_final.mp4"
-                audio_path = i2v_dir / f"shot_{seq:02d}_narration.wav"
-                narr = s.get('narration') or ""
-                tone = s.get('tone')
-                # synthesize_tts(narr, audio_path, tone=tone)
-                merge_clip(video_raw, audio_path, video_final)
+                # 取消 TTS，保留 Pixverse 自带音频
+                shutil.copyfile(video_raw, video_final)
                 obj = f"users/{req.user_id}/stories/{req.story_id}/i2v/shot_{seq:02d}/final.mp4"
                 url = upload_to_oss(obj, video_final)
                 s['video_url'] = url or f"/static/{req.user_id}/{req.story_id}/I2V/{video_final.name}"
