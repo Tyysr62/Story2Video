@@ -16,6 +16,8 @@ import (
 	"story2video-backend/internal/model"
 )
 
+const ShotSequenceOrderClause = "CASE WHEN sequence ~ '^[0-9]+$' THEN sequence::INT ELSE 2147483647 END ASC, sequence ASC, created_at ASC"
+
 type ShotService struct {
 	data       *data.Data
 	dispatcher *jobDispatcher
@@ -29,33 +31,38 @@ func NewShotService(cfg *conf.Config, d *data.Data, logger *zap.Logger) *ShotSer
 	}
 }
 
-func (s *ShotService) List(ctx context.Context, storyID uuid.UUID) ([]model.Shot, error) {
+func (s *ShotService) List(ctx context.Context, userID, storyID uuid.UUID) ([]model.Shot, error) {
 	var shots []model.Shot
 	if err := s.data.DB.WithContext(ctx).
-		Where("story_id = ?", storyID).
-		Order("sequence asc").
+		Where("story_id = ? AND user_id = ?", storyID, userID).
+		Order(ShotSequenceOrderClause).
 		Find(&shots).Error; err != nil {
 		return nil, fmt.Errorf("list shots: %w", err)
+	}
+	if len(shots) == 0 {
+		if _, err := s.getStory(ctx, userID, storyID); err != nil {
+			return nil, err
+		}
 	}
 	return shots, nil
 }
 
-func (s *ShotService) Get(ctx context.Context, storyID, shotID uuid.UUID) (*model.Shot, error) {
+func (s *ShotService) Get(ctx context.Context, userID, storyID, shotID uuid.UUID) (*model.Shot, error) {
 	var shot model.Shot
 	if err := s.data.DB.WithContext(ctx).
-		Where("id = ? AND story_id = ?", shotID, storyID).
+		Where("id = ? AND story_id = ? AND user_id = ?", shotID, storyID, userID).
 		First(&shot).Error; err != nil {
 		return nil, fmt.Errorf("get shot: %w", err)
 	}
 	return &shot, nil
 }
 
-func (s *ShotService) UpdateScript(ctx context.Context, storyID, shotID, userID uuid.UUID, script string) (*model.Operation, error) {
-	shot, err := s.Get(ctx, storyID, shotID)
+func (s *ShotService) UpdateScript(ctx context.Context, userID, storyID, shotID uuid.UUID, script string) (*model.Operation, error) {
+	shot, err := s.Get(ctx, userID, storyID, shotID)
 	if err != nil {
 		return nil, err
 	}
-	story, err := s.getStory(ctx, storyID)
+	story, err := s.getStory(ctx, userID, storyID)
 	if err != nil {
 		return nil, err
 	}
@@ -104,8 +111,8 @@ func (s *ShotService) UpdateScript(ctx context.Context, storyID, shotID, userID 
 	return op, nil
 }
 
-func (s *ShotService) RenderStory(ctx context.Context, storyID, userID uuid.UUID) (*model.Operation, error) {
-	story, err := s.getStory(ctx, storyID)
+func (s *ShotService) RenderStory(ctx context.Context, userID, storyID uuid.UUID) (*model.Operation, error) {
+	story, err := s.getStory(ctx, userID, storyID)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +148,7 @@ func (s *ShotService) RenderStory(ctx context.Context, storyID, userID uuid.UUID
 	return op, nil
 }
 
-func (s *ShotService) Update(ctx context.Context, storyID, shotID uuid.UUID, fields map[string]interface{}) (*model.Shot, error) {
+func (s *ShotService) Update(ctx context.Context, userID, storyID, shotID uuid.UUID, fields map[string]interface{}) (*model.Shot, error) {
 	if len(fields) == 0 {
 		return nil, errors.New("no fields to update")
 	}
@@ -167,16 +174,18 @@ func (s *ShotService) Update(ctx context.Context, storyID, shotID uuid.UUID, fie
 	}
 	if err := s.data.DB.WithContext(ctx).
 		Model(&model.Shot{}).
-		Where("id = ? AND story_id = ?", shotID, storyID).
+		Where("id = ? AND story_id = ? AND user_id = ?", shotID, storyID, userID).
 		Updates(updates).Error; err != nil {
 		return nil, fmt.Errorf("update shot fields: %w", err)
 	}
-	return s.Get(ctx, storyID, shotID)
+	return s.Get(ctx, userID, storyID, shotID)
 }
 
-func (s *ShotService) getStory(ctx context.Context, storyID uuid.UUID) (*model.Story, error) {
+func (s *ShotService) getStory(ctx context.Context, userID, storyID uuid.UUID) (*model.Story, error) {
 	var story model.Story
-	if err := s.data.DB.WithContext(ctx).First(&story, "id = ?", storyID).Error; err != nil {
+	if err := s.data.DB.WithContext(ctx).
+		Where("id = ? AND user_id = ?", storyID, userID).
+		First(&story).Error; err != nil {
 		return nil, fmt.Errorf("get story: %w", err)
 	}
 	return &story, nil

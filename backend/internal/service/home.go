@@ -75,6 +75,7 @@ func (s *HomeService) Create(ctx context.Context, userID uuid.UUID, params Creat
 	var (
 		story *model.Story
 		op    *model.Operation
+		job   StoryJobMessage
 	)
 
 	err := s.data.DB.WithContext(ctx).Transaction(func(txCtx *gorm.DB) error {
@@ -87,11 +88,12 @@ func (s *HomeService) Create(ctx context.Context, userID uuid.UUID, params Creat
 			return fmt.Errorf("create story: %w", err)
 		}
 
-		payloadBytes, err := json.Marshal(StoryJobPayload{
+		payload := StoryJobPayload{
 			DisplayName:   params.DisplayName,
 			ScriptContent: params.ScriptContent,
 			Style:         params.Style,
-		})
+		}
+		payloadBytes, err := json.Marshal(payload)
 		if err != nil {
 			return fmt.Errorf("marshal payload: %w", err)
 		}
@@ -101,25 +103,27 @@ func (s *HomeService) Create(ctx context.Context, userID uuid.UUID, params Creat
 			return fmt.Errorf("create operation: %w", err)
 		}
 
+		job = StoryJobMessage{
+			OperationID: op.ID.String(),
+			StoryID:     story.ID.String(),
+			UserID:      userID.String(),
+			Payload:     payload,
+			CreatedAt:   op.CreatedAt,
+		}
+
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	job := StoryJobMessage{
-		OperationID: op.ID.String(),
-		StoryID:     story.ID.String(),
-		UserID:      userID.String(),
-		Payload: StoryJobPayload{
-			DisplayName:   params.DisplayName,
-			ScriptContent: params.ScriptContent,
-			Style:         params.Style,
-		},
-		CreatedAt: op.CreatedAt,
-	}
 	if err := s.dispatcher.Dispatch(job); err != nil {
-		return nil, err
+		_ = UpdateOperationFailure(ctx, s.data, op.ID, err)
+		_ = s.data.DB.WithContext(ctx).
+			Model(&model.Story{}).
+			Where("id = ?", story.ID).
+			Update("status", global.StoryFail).Error
+		return nil, fmt.Errorf("dispatch storyboard job: %w", err)
 	}
 
 	return &CreateHomeResult{

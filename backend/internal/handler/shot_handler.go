@@ -24,7 +24,12 @@ func (h *ShotHandler) List(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid story_id"})
 		return
 	}
-	shots, err := h.service.List(c.Request.Context(), storyID)
+	userID, err := userIDFromContext(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+	shots, err := h.service.List(c.Request.Context(), userID, storyID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -37,7 +42,12 @@ func (h *ShotHandler) Get(c *gin.Context) {
 	if !ok {
 		return
 	}
-	shot, err := h.service.Get(c.Request.Context(), storyID, shotID)
+	userID, err := userIDFromContext(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+	shot, err := h.service.Get(c.Request.Context(), userID, storyID, shotID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -62,6 +72,11 @@ type updateShotBody struct {
 func (h *ShotHandler) Update(c *gin.Context) {
 	storyID, shotID, ok := h.parseStoryShotIDs(c)
 	if !ok {
+		return
+	}
+	userID, err := userIDFromContext(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -100,7 +115,7 @@ func (h *ShotHandler) Update(c *gin.Context) {
 		fields["bgm"] = *req.Shot.BGM
 	}
 
-	shot, err := h.service.Update(c.Request.Context(), storyID, shotID, fields)
+	shot, err := h.service.Update(c.Request.Context(), userID, storyID, shotID, fields)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -134,7 +149,7 @@ func (h *ShotHandler) Regenerate(c *gin.Context) {
 		return
 	}
 
-	op, err := h.service.UpdateScript(c.Request.Context(), storyID, shotID, userID, req.Details)
+	op, err := h.service.UpdateScript(c.Request.Context(), userID, storyID, shotID, req.Details)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -154,7 +169,7 @@ func (h *ShotHandler) Render(c *gin.Context) {
 		return
 	}
 
-	op, err := h.service.RenderStory(c.Request.Context(), storyID, userID)
+	op, err := h.service.RenderStory(c.Request.Context(), userID, storyID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

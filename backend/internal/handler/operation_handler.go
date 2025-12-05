@@ -28,8 +28,15 @@ func (h *OperationHandler) Get(c *gin.Context) {
 		return
 	}
 
+	userID, err := userIDFromContext(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
 	var op model.Operation
-	if err := h.data.DB.WithContext(c.Request.Context()).First(&op, "id = ?", opID).Error; err != nil {
+	if err := h.data.DB.WithContext(c.Request.Context()).
+		First(&op, "id = ? AND user_id = ?", opID, userID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "operation not found"})
 		return
 	}
