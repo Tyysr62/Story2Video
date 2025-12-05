@@ -48,7 +48,10 @@ func main() {
 	}
 	defer func() { _ = log.Sync() }()
 
-	dataLayer, cleanup, err := data.NewData(ctx, cfg, log)
+	// Worker 跳过数据库迁移，迁移由 API Server 负责
+	dataLayer, cleanup, err := data.NewDataWithOptions(ctx, cfg, log, data.DataOptions{
+		SkipMigration: true,
+	})
 	if err != nil {
 		panic(fmt.Errorf("init data: %w", err))
 	}

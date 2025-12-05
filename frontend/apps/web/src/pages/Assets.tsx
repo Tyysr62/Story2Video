@@ -21,7 +21,7 @@ import {
   Pressable,
 } from "@story2video/ui";
 import { useMediaQuery } from "../hooks/useMediaQuery";
-import { useStories, StoryStatus, Story } from "@story2video/core";
+import { useStories, StoryListItem } from "@story2video/core";
 
 const Assets = () => {
   const [search, setSearch] = useState("");
@@ -32,13 +32,13 @@ const Assets = () => {
   const { data: storiesData, isLoading, error, refetch } = useStories();
 
   // 处理点击素材项目：根据 video_url 是否为空决定跳转页面
-  const handleAssetClick = useCallback((story: Story) => {
+  const handleAssetClick = useCallback((story: StoryListItem) => {
     if (story.video_url) {
       // 有视频，跳转到预览页面
-      navigate(`/preview?storyId=${story.id}`);
+      navigate(`/preview?storyId=${story.story_id}`);
     } else {
       // 无视频，跳转到分镜编辑页面
-      navigate(`/storyboard?storyId=${story.id}`);
+      navigate(`/storyboard?storyId=${story.story_id}`);
     }
   }, [navigate]);
   const stories = storiesData?.items ?? [];
@@ -46,7 +46,7 @@ const Assets = () => {
   // 根据搜索过滤
   const filteredAssets = useMemo(() => {
     return stories.filter((story) =>
-      story.title.toLowerCase().includes(search.toLowerCase())
+      (story.display_name ?? "").toLowerCase().includes(search.toLowerCase())
     );
   }, [stories, search]);
 
@@ -61,16 +61,16 @@ const Assets = () => {
   };
 
   // 获取状态 Badge
-  const getStatusBadge = (status: StoryStatus) => {
-    switch (status) {
-      case StoryStatus.READY:
+  const getStatusBadge = (compileState: string) => {
+    switch (compileState) {
+      case "STATE_COMPLETED":
         return { action: "success" as const, label: "已完成" };
-      case StoryStatus.GENERATING:
+      case "STATE_RUNNING":
         return { action: "info" as const, label: "生成中" };
-      case StoryStatus.FAILED:
+      case "STATE_FAILED":
         return { action: "error" as const, label: "失败" };
       default:
-        return { action: "muted" as const, label: status };
+        return { action: "muted" as const, label: "草稿" };
     }
   };
 
@@ -122,9 +122,9 @@ const Assets = () => {
           <ScrollView flex={1} showsVerticalScrollIndicator={false}>
             <VStack space="md" pb="$4">
               {filteredAssets.map((story) => {
-                const statusInfo = getStatusBadge(story.status);
+                const statusInfo = getStatusBadge(story.compile_state);
                 return (
-                  <Pressable key={story.id} onPress={() => handleAssetClick(story)}>
+                  <Pressable key={story.story_id} onPress={() => handleAssetClick(story)}>
                     <Box
                       bg="$white"
                       borderRadius="$lg"
@@ -138,21 +138,20 @@ const Assets = () => {
                       elevation={2}
                     >
                       <Image
-                        source={{ uri: story.cover_url || `https://placehold.co/600x400/png?text=${encodeURIComponent(story.title)}` }}
-                        alt={story.title}
+                        source={{ uri: story.cover_url || `https://placehold.co/600x400/png?text=${encodeURIComponent(story.display_name ?? "故事")}` }}
+                        alt={story.display_name}
                         h={150}
                         w="100%"
                         resizeMode="cover"
                       />
                       <VStack p="$3" space="xs">
                         <HStack justifyContent="space-between" alignItems="center">
-                          <Heading size="sm" isTruncated flex={1}>{story.title}</Heading>
+                          <Heading size="sm" isTruncated flex={1}>{story.display_name}</Heading>
                           <Badge size="sm" variant="solid" borderRadius="$full" action={statusInfo.action}>
                             <BadgeText>{statusInfo.label}</BadgeText>
                           </Badge>
                         </HStack>
-                        <Text size="xs" color="$textLight400">创建: {formatDate(story.created_at)}</Text>
-                        <Text size="xs" color="$textLight500" numberOfLines={1}>{story.content}</Text>
+                        <Text size="xs" color="$textLight400">创建: {formatDate(story.create_time)}</Text>
                       </VStack>
                     </Box>
                   </Pressable>
@@ -197,9 +196,9 @@ const Assets = () => {
         {/* Grid of Assets */}
         <HStack space="md" flexWrap="wrap">
           {filteredAssets.map((story) => {
-            const statusInfo = getStatusBadge(story.status);
+            const statusInfo = getStatusBadge(story.compile_state);
             return (
-              <Pressable key={story.id} onPress={() => handleAssetClick(story)}>
+              <Pressable key={story.story_id} onPress={() => handleAssetClick(story)}>
                 <Box
                   width={300}
                   bg="$white"
@@ -215,21 +214,20 @@ const Assets = () => {
                   elevation={2}
                 >
                   <Image
-                    source={{ uri: story.cover_url || `https://placehold.co/600x400/png?text=${encodeURIComponent(story.title)}` }}
-                    alt={story.title}
+                    source={{ uri: story.cover_url || `https://placehold.co/600x400/png?text=${encodeURIComponent(story.display_name ?? "故事")}` }}
+                    alt={story.display_name}
                     h={160}
                     w="100%"
                     resizeMode="cover"
                   />
                   <VStack p="$4" space="xs">
                     <HStack justifyContent="space-between" alignItems="center">
-                      <Heading size="sm" isTruncated flex={1}>{story.title}</Heading>
+                      <Heading size="sm" isTruncated flex={1}>{story.display_name}</Heading>
                       <Badge size="sm" variant="solid" borderRadius="$full" action={statusInfo.action}>
                         <BadgeText>{statusInfo.label}</BadgeText>
                       </Badge>
                     </HStack>
-                    <Text size="xs" color="$textLight400">创建: {formatDate(story.created_at)}</Text>
-                    <Text size="xs" color="$textLight500" numberOfLines={1}>{story.content}</Text>
+                    <Text size="xs" color="$textLight400">创建: {formatDate(story.create_time)}</Text>
                   </VStack>
                 </Box>
               </Pressable>

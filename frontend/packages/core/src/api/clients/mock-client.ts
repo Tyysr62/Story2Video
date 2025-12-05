@@ -1,6 +1,6 @@
 import type { IHttpClient, RequestConfig } from "../interfaces";
 import {
-  mockStories,
+  mockStoryListItems,
   getMockStory,
   getMockOperation,
   getMockShot,
@@ -57,7 +57,7 @@ export class MockHttpClient implements IHttpClient {
 
     // GET /v1/stories
     if (pathname === "/v1/stories") {
-      const response: ListStoriesResponse = { items: mockStories };
+      const response: ListStoriesResponse = { items: mockStoryListItems };
       this.log("GET", url, response);
       return response as T;
     }
