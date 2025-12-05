@@ -1,6 +1,5 @@
 import type { IHttpClient, RequestConfig } from "../interfaces";
 import {
-  mockStories,
   mockStoryListItems,
   getMockStory,
   getMockOperation,
