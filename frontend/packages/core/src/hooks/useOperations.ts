@@ -5,6 +5,7 @@
  * 1. useOperationsStore - 获取本地存储的 operation ID 列表
  * 2. useQueries - 并行获取每个 operation 的详情
  * 3. 轮询 - 对进行中的任务自动轮询，已完成的任务停止轮询
+ * 4. 错误处理 - 当后端返回 "operation not found" 时，停止轮询并从 store 中移除
  */
 
 import { useEffect, useMemo } from "react";
@@ -22,6 +23,23 @@ const DEFAULT_POLL_INTERVAL = 5000;
 /** 判断操作是否已完成 */
 function isOperationComplete(status: OperationStatus): boolean {
   return status === "succeeded" || status === "failed";
+}
+
+/** 判断错误是否为 "operation not found" */
+function isOperationNotFoundError(error: unknown): boolean {
+  if (!error) return false;
+  
+  // 检查错误消息
+  const errorMessage = error instanceof Error 
+    ? error.message 
+    : typeof error === "object" && error !== null && "message" in error
+      ? String((error as { message: unknown }).message)
+      : typeof error === "string" 
+        ? error 
+        : "";
+  
+  return errorMessage.toLowerCase().includes("operation not found") ||
+         errorMessage.toLowerCase().includes("not found");
 }
 
 /** Hook 返回值类型 */
@@ -87,6 +105,7 @@ export function useOperationsWithPolling(
   // 从 store 获取存储的 operations
   const storedOperations = useOperationsStore((state) => state.operations);
   const cleanupOldOperations = useOperationsStore((state) => state.cleanupOldOperations);
+  const removeOperation = useOperationsStore((state) => state.removeOperation);
 
   // 自动清理过期任务
   useEffect(() => {
@@ -129,15 +148,37 @@ export function useOperationsWithPolling(
         return result;
       },
       enabled: enabled && !!id,
-      // 仅对未完成的任务启用轮询
-      refetchInterval: (query: { state: { data?: Operation } }) => {
+      // 仅对未完成的任务启用轮询；发生错误时也停止轮询
+      refetchInterval: (query: { state: { data?: Operation; error?: Error | null } }) => {
+        // 如果发生错误，停止轮询
+        if (query.state.error) return false;
         if (!query.state.data) return pollInterval;
         return isOperationComplete(query.state.data.status) ? false : pollInterval;
       },
       // 避免后台刷新时显示加载状态
       staleTime: pollInterval / 2,
+      // 错误时不自动重试（避免对不存在的 operation 反复请求）
+      retry: (failureCount: number, error: Error) => {
+        // 如果是 "operation not found" 错误，不重试
+        if (isOperationNotFoundError(error)) return false;
+        // 其他错误最多重试 2 次
+        return failureCount < 2;
+      },
     })),
   });
+
+  // 处理 "operation not found" 错误：从 store 中移除对应的 operation
+  useEffect(() => {
+    queries.forEach((query, index) => {
+      if (query.isError && isOperationNotFoundError(query.error)) {
+        const operationId = operationIds[index];
+        if (operationId) {
+          console.warn(`[useOperationsWithPolling] Operation "${operationId}" not found, removing from store`);
+          removeOperation(operationId);
+        }
+      }
+    });
+  }, [queries, operationIds, removeOperation]);
 
   // 合并所有查询结果
   const operations = useMemo(() => {
