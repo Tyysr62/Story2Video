@@ -61,6 +61,10 @@ type Kafka struct {
 	AutoCreateTopic   bool     `mapstructure:"auto_create_topic"`
 }
 
+type CORS struct {
+	AllowOrigins []string `mapstructure:"allow_origins"`
+}
+
 type Config struct {
 	Server       Server       `mapstructure:"server"`
 	Database     Database     `mapstructure:"database"`
@@ -69,6 +73,7 @@ type Config struct {
 	GRPC         GRPC         `mapstructure:"grpc"`
 	ModelService ModelService `mapstructure:"model_service"`
 	Kafka        Kafka        `mapstructure:"kafka"`
+	CORS         CORS         `mapstructure:"cors"`
 }
 
 func Load(path string) (*Config, error) {
