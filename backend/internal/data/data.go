@@ -25,14 +25,26 @@ type Data struct {
 	RPC   *modelclient.Client
 }
 
+// DataOptions 用于配置 Data 初始化选项
+type DataOptions struct {
+	// SkipMigration 如果为 true，则跳过数据库迁移（适用于 Worker 等不需要迁移的服务）
+	SkipMigration bool
+}
+
 func NewData(ctx context.Context, cfg *conf.Config, log *zap.Logger) (*Data, func(), error) {
+	return NewDataWithOptions(ctx, cfg, log, DataOptions{})
+}
+
+func NewDataWithOptions(ctx context.Context, cfg *conf.Config, log *zap.Logger, opts DataOptions) (*Data, func(), error) {
 	colorful := !strings.EqualFold(cfg.Server.Mode, "release")
 	db, err := newDB(cfg.Database, log, colorful)
 	if err != nil {
 		return nil, nil, err
 	}
-	if err := db.AutoMigrate(&model.Story{}, &model.Shot{}, &model.Operation{}); err != nil {
-		return nil, nil, fmt.Errorf("auto migrate: %w", err)
+	if !opts.SkipMigration {
+		if err := db.AutoMigrate(&model.Story{}, &model.Shot{}, &model.Operation{}); err != nil {
+			return nil, nil, fmt.Errorf("auto migrate: %w", err)
+		}
 	}
 
 	rdb, err := newRedis(cfg.Redis)
