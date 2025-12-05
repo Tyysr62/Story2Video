@@ -147,10 +147,22 @@ export interface ApiError {
 }
 
 /**
+ * 故事列表项（匹配 GET /v1/stories 返回的 items 格式）
+ */
+export interface StoryListItem {
+  story_id: string;
+  display_name: string;
+  cover_url: string;
+  create_time: string;
+  compile_state: string;
+  video_url: string;
+}
+
+/**
  * 故事列表响应
  */
 export interface ListStoriesResponse {
-  items: Story[];
+  items: StoryListItem[];
   next_page_token?: string;
 }
 
