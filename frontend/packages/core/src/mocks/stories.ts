@@ -1,12 +1,59 @@
 import {
   Story,
+  StoryListItem,
   StoryStyle,
   StoryStatus,
   ListStoriesResponse,
 } from "../types/domain";
 
 /**
- * Mock 故事数据
+ * Mock 故事列表项数据（用于列表 API）
+ */
+export const mockStoryListItems: StoryListItem[] = [
+  {
+    story_id: "aff9edc-cdad-4c26-8c3b-8fb44f8a6898",
+    display_name: "沙漠秘境",
+    cover_url: "https://placehold.co/600x400/png?text=沙漠秘境",
+    create_time: "2025-12-01T19:51:54.190894+08:00",
+    compile_state: "STATE_COMPLETED",
+    video_url: "https://www.w3schools.com/html/mov_bbb.mp4",
+  },
+  {
+    story_id: "cf000374-bdf4-403f-8112-d57fb5617cb1",
+    display_name: "花田传说",
+    cover_url: "",
+    create_time: "2025-12-01T19:39:51.915875+08:00",
+    compile_state: "STATE_RUNNING",
+    video_url: "",
+  },
+  {
+    story_id: "3d38342b-c4d2-4171-ab87-bda85a36136e",
+    display_name: "温馨短片",
+    cover_url: "https://placehold.co/600x400/png?text=温馨短片",
+    create_time: "2025-12-01T19:19:20.273197+08:00",
+    compile_state: "STATE_COMPLETED",
+    video_url: "https://www.w3schools.com/html/mov_bbb.mp4",
+  },
+  {
+    story_id: "4fbb04b3-db6d-4928-aa2d-2514a2469a82",
+    display_name: "雪山奇缘",
+    cover_url: "https://placehold.co/600x400/png?text=雪山奇缘",
+    create_time: "2025-12-01T20:40:30.761361+08:00",
+    compile_state: "STATE_COMPLETED",
+    video_url: "https://www.w3schools.com/html/mov_bbb.mp4",
+  },
+  {
+    story_id: "95134d9c-8ca0-407b-b0f7-a4df9bcfe69c",
+    display_name: "测试失败",
+    cover_url: "",
+    create_time: "2025-12-01T18:00:00.000000+08:00",
+    compile_state: "STATE_FAILED",
+    video_url: "",
+  },
+];
+
+/**
+ * Mock 故事详情数据（用于详情 API）
  */
 export const mockStories: Story[] = [
   {
@@ -85,7 +132,7 @@ export const mockStories: Story[] = [
  * Mock 故事列表响应
  */
 export const mockListStoriesResponse: ListStoriesResponse = {
-  items: mockStories,
+  items: mockStoryListItems,
 };
 
 /**
