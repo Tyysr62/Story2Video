@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/panjf2000/ants/v2"
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -30,6 +32,8 @@ type worker struct {
 	client     modelpb.StoryboardServiceClient
 	logger     *zap.Logger
 	reader     *kafka.Reader
+	pool       *ants.Pool
+	rpcTimeout time.Duration
 	workerName string
 }
 
@@ -48,7 +52,6 @@ func main() {
 	}
 	defer func() { _ = log.Sync() }()
 
-	// Worker 跳过数据库迁移，迁移由 API Server 负责
 	dataLayer, cleanup, err := data.NewDataWithOptions(ctx, cfg, log, data.DataOptions{
 		SkipMigration: true,
 	})
@@ -69,11 +72,32 @@ func main() {
 	reader := newKafkaReader(cfg)
 	defer reader.Close()
 
+	poolSize := cfg.Pool.Size
+	if poolSize <= 0 {
+		poolSize = runtime.NumCPU()
+	}
+	expiry := time.Duration(cfg.Pool.ExpirySeconds) * time.Second
+	if expiry <= 0 {
+		expiry = 5 * time.Minute
+	}
+	jobPool, err := ants.NewPool(poolSize, ants.WithExpiryDuration(expiry))
+	if err != nil {
+		panic(fmt.Errorf("init worker pool: %w", err))
+	}
+	defer jobPool.Release()
+
+	rpcTimeout := time.Duration(cfg.ModelService.Timeout) * time.Second
+	if rpcTimeout <= 0 {
+		rpcTimeout = 2 * time.Minute
+	}
+
 	w := &worker{
 		data:       dataLayer,
 		client:     modelpb.NewStoryboardServiceClient(modelConn.Conn()),
 		logger:     log,
 		reader:     reader,
+		pool:       jobPool,
+		rpcTimeout: rpcTimeout,
 		workerName: "story-worker",
 	}
 
@@ -97,50 +121,75 @@ func (w *worker) run(ctx context.Context) {
 			continue
 		}
 
-		if err := w.handleMessage(ctx, m.Value); err != nil {
-			w.logger.Error("process job", zap.Error(err))
+		if err := w.submitMessage(ctx, m); err != nil {
+			w.logger.Error("submit job to pool", zap.Error(err))
+			w.processMessage(ctx, m)
 		}
+	}
+}
 
-		if err := w.reader.CommitMessages(ctx, m); err != nil {
-			w.logger.Error("commit message", zap.Error(err))
-		}
+func (w *worker) submitMessage(ctx context.Context, msg kafka.Message) error {
+	if w.pool == nil {
+		w.processMessage(ctx, msg)
+		return nil
+	}
+	return w.pool.Submit(func() {
+		w.processMessage(ctx, msg)
+	})
+}
+
+func (w *worker) processMessage(ctx context.Context, msg kafka.Message) {
+	if err := w.handleMessage(ctx, msg.Value); err != nil {
+		w.logger.Error("process job", zap.Error(err))
+	}
+	if err := w.reader.CommitMessages(ctx, msg); err != nil {
+		w.logger.Error("commit message", zap.Error(err))
 	}
 }
 
 func (w *worker) handleMessage(ctx context.Context, value []byte) error {
 	var job service.StoryJobMessage
 	if err := json.Unmarshal(value, &job); err != nil {
-		return fmt.Errorf("decode job: %w", err)
+		return service.WrapServiceError(service.ErrCodeInvalidRequest, "解析任务消息失败", err)
 	}
 
 	opID, err := uuid.Parse(job.OperationID)
 	if err != nil {
-		return fmt.Errorf("invalid operation_id: %w", err)
+		return service.NewServiceError(service.ErrCodeInvalidRequest, "operation_id 非法")
 	}
 
 	if err := service.UpdateOperationRunning(ctx, w.data, opID); err != nil {
-		return fmt.Errorf("mark running: %w", err)
+		return service.WrapServiceError(service.ErrCodeOperationUpdateFailed, "标记任务为运行中失败", err)
 	}
 
-	switch job.Payload.Action {
-	case "regen_shot":
-		err = w.handleRegenerate(ctx, job)
-	case "render_video":
-		err = w.handleRender(ctx, job)
-	default:
-		err = w.handleCreate(ctx, job)
-	}
-
+	err = w.dispatchJob(ctx, job)
 	if err != nil {
+		if _, ok := service.AsServiceError(err); !ok {
+			err = service.WrapServiceError(service.ErrCodeWorkerExecutionFailed, "处理任务失败", err)
+		}
 		_ = service.UpdateOperationFailure(ctx, w.data, opID, err)
 		w.handleJobFailure(ctx, job)
+		w.logError(service.LogMsgWorkerExecutionFail, err, &job)
 		return err
 	}
 
 	if err := service.UpdateOperationSuccess(ctx, w.data, opID, w.workerName); err != nil {
-		return fmt.Errorf("mark success: %w", err)
+		err = service.WrapServiceError(service.ErrCodeOperationUpdateFailed, "标记任务成功失败", err)
+		w.logError(service.LogMsgOperationUpdateFail, err, &job)
+		return err
 	}
 	return nil
+}
+
+func (w *worker) dispatchJob(ctx context.Context, job service.StoryJobMessage) error {
+	switch job.Payload.Action {
+	case "regen_shot":
+		return w.handleRegenerate(ctx, job)
+	case "render_video":
+		return w.handleRender(ctx, job)
+	default:
+		return w.handleCreate(ctx, job)
+	}
 }
 
 func (w *worker) handleCreate(ctx context.Context, job service.StoryJobMessage) error {
@@ -152,9 +201,16 @@ func (w *worker) handleCreate(ctx context.Context, job service.StoryJobMessage) 
 		ScriptContent: job.Payload.ScriptContent,
 		Style:         job.Payload.Style,
 	}
-	resp, err := w.client.CreateStoryboardTask(ctx, req)
-	if err != nil {
-		return err
+	var resp *modelpb.StoryboardReply
+	if err := w.callRPCWithTimeout(ctx, func(rpcCtx context.Context) error {
+		var rpcErr error
+		resp, rpcErr = w.client.CreateStoryboardTask(rpcCtx, req)
+		return rpcErr
+	}); err != nil {
+		return service.WrapServiceError(service.ErrCodeWorkerExecutionFailed, "调用模型服务创建故事失败", err)
+	}
+	if resp == nil || len(resp.Shots) == 0 {
+		return service.NewServiceError(service.ErrCodeShotMissingPartial, "模型服务未返回任何镜头")
 	}
 	return w.persistShots(ctx, job, resp.Shots)
 }
@@ -168,9 +224,16 @@ func (w *worker) handleRegenerate(ctx context.Context, job service.StoryJobMessa
 		Style:       job.Payload.Style,
 		UserId:      job.UserID,
 	}
-	resp, err := w.client.RegenerateShot(ctx, req)
-	if err != nil {
-		return err
+	var resp *modelpb.RegenerateShotReply
+	if err := w.callRPCWithTimeout(ctx, func(rpcCtx context.Context) error {
+		var rpcErr error
+		resp, rpcErr = w.client.RegenerateShot(rpcCtx, req)
+		return rpcErr
+	}); err != nil {
+		return service.WrapServiceError(service.ErrCodeWorkerExecutionFailed, "调用模型服务重生成镜头失败", err)
+	}
+	if resp == nil || resp.Shot == nil {
+		return service.NewServiceError(service.ErrCodeShotContentMissing, "模型服务未返回镜头内容")
 	}
 	return w.upsertShot(ctx, job, resp.Shot)
 }
@@ -181,28 +244,38 @@ func (w *worker) handleRender(ctx context.Context, job service.StoryJobMessage) 
 		StoryId:     job.StoryID,
 		UserId:      job.UserID,
 	}
-	resp, err := w.client.RenderVideo(ctx, req)
-	if err != nil {
-		return err
+	var resp *modelpb.RenderVideoReply
+	if err := w.callRPCWithTimeout(ctx, func(rpcCtx context.Context) error {
+		var rpcErr error
+		resp, rpcErr = w.client.RenderVideo(rpcCtx, req)
+		return rpcErr
+	}); err != nil {
+		return service.WrapServiceError(service.ErrCodeWorkerExecutionFailed, "调用模型服务渲染视频失败", err)
 	}
 	storyID, err := uuid.Parse(job.StoryID)
 	if err != nil {
-		return err
+		return service.NewServiceError(service.ErrCodeInvalidRequest, "story_id 非法")
 	}
 	update := map[string]interface{}{
 		"status":    global.StoryReady,
 		"video_url": resp.VideoUrl,
 	}
-	return w.data.DB.WithContext(ctx).
+	if err := w.data.DB.WithContext(ctx).
 		Model(&model.Story{}).
 		Where("id = ?", storyID).
-		Updates(update).Error
+		Updates(update).Error; err != nil {
+		return service.WrapServiceError(service.ErrCodeDatabaseActionFailed, "更新故事渲染结果失败", err)
+	}
+	return nil
 }
 
 func (w *worker) persistShots(ctx context.Context, job service.StoryJobMessage, shots []*modelpb.ShotResult) error {
 	storyUUID, err := uuid.Parse(job.StoryID)
 	if err != nil {
-		return err
+		return service.NewServiceError(service.ErrCodeInvalidRequest, "story_id 非法")
+	}
+	if len(shots) == 0 {
+		return service.NewServiceError(service.ErrCodeShotMissingPartial, "模型服务未返回任何镜头")
 	}
 	for _, s := range shots {
 		if err := w.upsertShot(ctx, job, s); err != nil {
@@ -213,21 +286,34 @@ func (w *worker) persistShots(ctx context.Context, job service.StoryJobMessage, 
 		Model(&model.Story{}).
 		Where("id = ?", storyUUID).
 		Update("status", global.StoryReady).Error; err != nil {
-		return err
+		return service.WrapServiceError(service.ErrCodeDatabaseActionFailed, "更新故事状态失败", err)
 	}
 	if err := w.ensureStoryCover(ctx, storyUUID); err != nil {
-		w.logger.Warn("ensure story cover", zap.Error(err), zap.String("story_id", storyUUID.String()))
+		w.logWarn(service.LogMsgResultDataMissing, err, &job, zap.String(string(service.LogKeyStoryID), storyUUID.String()))
 	}
 	return nil
 }
 
+func (w *worker) callRPCWithTimeout(ctx context.Context, fn func(context.Context) error) error {
+	if w.rpcTimeout <= 0 {
+		return fn(ctx)
+	}
+	rpcCtx := ctx
+	if deadline, ok := ctx.Deadline(); !ok || time.Until(deadline) > w.rpcTimeout {
+		var cancel context.CancelFunc
+		rpcCtx, cancel = context.WithTimeout(ctx, w.rpcTimeout)
+		defer cancel()
+	}
+	return fn(rpcCtx)
+}
+
 func (w *worker) upsertShot(ctx context.Context, job service.StoryJobMessage, shot *modelpb.ShotResult) error {
 	if shot == nil {
-		return errors.New("empty shot result")
+		return service.NewServiceError(service.ErrCodeResultDataMissing, "模型返回空的镜头结果")
 	}
 	storyID, err := uuid.Parse(job.StoryID)
 	if err != nil {
-		return err
+		return service.NewServiceError(service.ErrCodeInvalidRequest, "story_id 非法")
 	}
 	sequence := shot.Sequence
 	if sequence == "" {
@@ -258,12 +344,12 @@ func (w *worker) upsertShot(ctx context.Context, job service.StoryJobMessage, sh
 				}
 				if shot.ImageUrl != "" {
 					if err := w.ensureStoryCover(ctx, storyID); err != nil {
-						w.logger.Warn("ensure story cover", zap.Error(err), zap.String("story_id", storyID.String()))
+						w.logWarn(service.LogMsgResultDataMissing, err, &job, zap.String(string(service.LogKeyStoryID), storyID.String()))
 					}
 				}
 				return nil
 			} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-				return err
+				return service.WrapServiceError(service.ErrCodeDatabaseActionFailed, "查询镜头记录失败", err)
 			}
 		}
 	}
@@ -296,17 +382,17 @@ func (w *worker) upsertShot(ctx context.Context, job service.StoryJobMessage, sh
 			BGM:         shot.Bgm,
 		}
 		if err := w.data.DB.WithContext(ctx).Create(&newShot).Error; err != nil {
-			return err
+			return service.WrapServiceError(service.ErrCodeDatabaseActionFailed, "创建镜头记录失败", err)
 		}
 		if shot.ImageUrl != "" {
 			if err := w.ensureStoryCover(ctx, storyID); err != nil {
-				w.logger.Warn("ensure story cover", zap.Error(err), zap.String("story_id", storyID.String()))
+				w.logWarn(service.LogMsgResultDataMissing, err, &job, zap.String(string(service.LogKeyStoryID), storyID.String()))
 			}
 		}
 		return nil
 	}
 	if err != nil {
-		return err
+		return service.WrapServiceError(service.ErrCodeDatabaseActionFailed, "查询镜头记录失败", err)
 	}
 
 	if err := w.updateShot(ctx, &existing, shot, details); err != nil {
@@ -314,7 +400,7 @@ func (w *worker) upsertShot(ctx context.Context, job service.StoryJobMessage, sh
 	}
 	if shot.ImageUrl != "" {
 		if err := w.ensureStoryCover(ctx, storyID); err != nil {
-			w.logger.Warn("ensure story cover", zap.Error(err), zap.String("story_id", storyID.String()))
+			w.logWarn(service.LogMsgResultDataMissing, err, &job, zap.String(string(service.LogKeyStoryID), storyID.String()))
 		}
 	}
 	return nil
@@ -344,9 +430,12 @@ func (w *worker) updateShot(ctx context.Context, existing *model.Shot, shot *mod
 		updates["details"] = details
 	}
 
-	return w.data.DB.WithContext(ctx).
+	if err := w.data.DB.WithContext(ctx).
 		Model(existing).
-		Updates(updates).Error
+		Updates(updates).Error; err != nil {
+		return service.WrapServiceError(service.ErrCodeDatabaseActionFailed, "更新镜头记录失败", err)
+	}
+	return nil
 }
 
 func (w *worker) handleJobFailure(ctx context.Context, job service.StoryJobMessage) {
@@ -365,30 +454,36 @@ func (w *worker) handleJobFailure(ctx context.Context, job service.StoryJobMessa
 func (w *worker) updateStoryStatus(ctx context.Context, storyID string, status string) error {
 	id, err := uuid.Parse(storyID)
 	if err != nil {
-		return err
+		return service.NewServiceError(service.ErrCodeInvalidRequest, "story_id 非法")
 	}
-	return w.data.DB.WithContext(ctx).
+	if err := w.data.DB.WithContext(ctx).
 		Model(&model.Story{}).
 		Where("id = ?", id).
-		Update("status", status).Error
+		Update("status", status).Error; err != nil {
+		return service.WrapServiceError(service.ErrCodeDatabaseActionFailed, "更新故事状态失败", err)
+	}
+	return nil
 }
 
 func (w *worker) updateShotStatus(ctx context.Context, shotID string, storyID string, status string) error {
 	if strings.TrimSpace(shotID) == "" {
-		return errors.New("empty shot_id")
+		return service.NewServiceError(service.ErrCodeInvalidRequest, "shot_id 为空")
 	}
 	sid, err := uuid.Parse(shotID)
 	if err != nil {
-		return err
+		return service.NewServiceError(service.ErrCodeInvalidRequest, "shot_id 非法")
 	}
 	storyUUID, err := uuid.Parse(storyID)
 	if err != nil {
-		return err
+		return service.NewServiceError(service.ErrCodeInvalidRequest, "story_id 非法")
 	}
-	return w.data.DB.WithContext(ctx).
+	if err := w.data.DB.WithContext(ctx).
 		Model(&model.Shot{}).
 		Where("id = ? AND story_id = ?", sid, storyUUID).
-		Update("status", status).Error
+		Update("status", status).Error; err != nil {
+		return service.WrapServiceError(service.ErrCodeDatabaseActionFailed, "更新镜头状态失败", err)
+	}
+	return nil
 }
 
 func newKafkaReader(cfg *conf.Config) *kafka.Reader {
@@ -435,4 +530,36 @@ func (w *worker) ensureStoryCover(ctx context.Context, storyID uuid.UUID) error 
 		Model(&model.Story{}).
 		Where("id = ?", storyID).
 		Update("cover_url", shot.ImageURL).Error
+}
+
+func (w *worker) logError(msg service.LogMsg, err error, job *service.StoryJobMessage, extra ...zap.Field) {
+	fields := append(jobFields(job), zap.Error(err))
+	fields = append(fields, extra...)
+	w.logger.Error(string(msg), fields...)
+}
+
+func (w *worker) logWarn(msg service.LogMsg, err error, job *service.StoryJobMessage, extra ...zap.Field) {
+	fields := append(jobFields(job), zap.Error(err))
+	fields = append(fields, extra...)
+	w.logger.Warn(string(msg), fields...)
+}
+
+func jobFields(job *service.StoryJobMessage) []zap.Field {
+	if job == nil {
+		return nil
+	}
+	fields := make([]zap.Field, 0, 4)
+	if job.OperationID != "" {
+		fields = append(fields, zap.String(string(service.LogKeyOperationID), job.OperationID))
+	}
+	if job.StoryID != "" {
+		fields = append(fields, zap.String(string(service.LogKeyStoryID), job.StoryID))
+	}
+	if job.Payload.ShotID != "" {
+		fields = append(fields, zap.String(string(service.LogKeyShotID), job.Payload.ShotID))
+	}
+	if job.UserID != "" {
+		fields = append(fields, zap.String(string(service.LogKeyUserID), job.UserID))
+	}
+	return fields
 }

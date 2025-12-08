@@ -29,12 +29,13 @@ type Database struct {
 }
 
 type Redis struct {
-	Host         string `mapstructure:"host"`
-	Port         int    `mapstructure:"port"`
-	Password     string `mapstructure:"password"`
-	DB           int    `mapstructure:"db"`
-	PoolSize     int    `mapstructure:"pool_size"`
-	MinIdleConns int    `mapstructure:"min_idle_conns"`
+	Host            string `mapstructure:"host"`
+	Port            int    `mapstructure:"port"`
+	Password        string `mapstructure:"password"`
+	DB              int    `mapstructure:"db"`
+	PoolSize        int    `mapstructure:"pool_size"`
+	MinIdleConns    int    `mapstructure:"min_idle_conns"`
+	CacheTTLSeconds int    `mapstructure:"cache_ttl_seconds"`
 }
 
 type Pool struct {
@@ -53,12 +54,16 @@ type ModelService struct {
 }
 
 type Kafka struct {
-	Brokers           []string `mapstructure:"brokers"`
-	Topic             string   `mapstructure:"topic"`
-	Group             string   `mapstructure:"group"`
-	Partitions        int      `mapstructure:"partitions"`
-	ReplicationFactor int      `mapstructure:"replication_factor"`
-	AutoCreateTopic   bool     `mapstructure:"auto_create_topic"`
+	Brokers             []string `mapstructure:"brokers"`
+	Topic               string   `mapstructure:"topic"`
+	Group               string   `mapstructure:"group"`
+	Partitions          int      `mapstructure:"partitions"`
+	ReplicationFactor   int      `mapstructure:"replication_factor"`
+	AutoCreateTopic     bool     `mapstructure:"auto_create_topic"`
+	WriteTimeoutSeconds int      `mapstructure:"write_timeout_seconds"`
+	BatchTimeoutMillis  int      `mapstructure:"batch_timeout_millis"`
+	MaxAttempts         int      `mapstructure:"max_attempts"`
+	RequiredAcks        int      `mapstructure:"required_acks"`
 }
 
 type CORS struct {
@@ -133,6 +138,7 @@ func overrideFromEnv(cfg *Config) {
 	setString("REDIS_HOST", &cfg.Redis.Host)
 	setInt("REDIS_PORT", &cfg.Redis.Port)
 	setString("REDIS_PASSWORD", &cfg.Redis.Password)
+	setInt("REDIS_CACHE_TTL_SECONDS", &cfg.Redis.CacheTTLSeconds)
 
 	setInt("POOL_SIZE", &cfg.Pool.Size)
 	setInt("POOL_EXPIRY_SECONDS", &cfg.Pool.ExpirySeconds)
@@ -151,4 +157,8 @@ func overrideFromEnv(cfg *Config) {
 	setInt("KAFKA_PARTITIONS", &cfg.Kafka.Partitions)
 	setInt("KAFKA_REPLICATION_FACTOR", &cfg.Kafka.ReplicationFactor)
 	setBool("KAFKA_AUTO_CREATE_TOPIC", &cfg.Kafka.AutoCreateTopic)
+	setInt("KAFKA_WRITE_TIMEOUT_SECONDS", &cfg.Kafka.WriteTimeoutSeconds)
+	setInt("KAFKA_BATCH_TIMEOUT_MILLIS", &cfg.Kafka.BatchTimeoutMillis)
+	setInt("KAFKA_MAX_ATTEMPTS", &cfg.Kafka.MaxAttempts)
+	setInt("KAFKA_REQUIRED_ACKS", &cfg.Kafka.RequiredAcks)
 }

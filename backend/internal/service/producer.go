@@ -17,6 +17,7 @@ const kafkaEnsureTopicTimeout = 10 * time.Second
 
 type producer interface {
 	Publish(ctx context.Context, msg StoryJobMessage) error
+	Close() error
 }
 
 type kafkaProducer struct {
@@ -26,9 +27,9 @@ type kafkaProducer struct {
 
 func newKafkaProducer(cfg *conf.Config, logger *zap.Logger) producer {
 	if len(cfg.Kafka.Brokers) == 0 || cfg.Kafka.Topic == "" {
-		err := fmt.Errorf("kafka config missing, brokers=%v, topic=%s", cfg.Kafka.Brokers, cfg.Kafka.Topic)
+		err := NewServiceError(ErrCodeKafkaConfigInvalid, fmt.Sprintf("缺少 Kafka 配置，brokers=%v, topic=%s", cfg.Kafka.Brokers, cfg.Kafka.Topic))
 		if logger != nil {
-			logger.Error("kafka config invalid", zap.Error(err))
+			logger.Error(string(LogMsgKafkaConfigInvalid), zap.Error(err))
 		}
 		return &failingProducer{err: err}
 	}
@@ -44,6 +45,18 @@ func newKafkaProducer(cfg *conf.Config, logger *zap.Logger) producer {
 		Topic:    cfg.Kafka.Topic,
 		Balancer: &kafka.Hash{},
 	}
+	if cfg.Kafka.WriteTimeoutSeconds > 0 {
+		w.WriteTimeout = time.Duration(cfg.Kafka.WriteTimeoutSeconds) * time.Second
+	}
+	if cfg.Kafka.BatchTimeoutMillis > 0 {
+		w.BatchTimeout = time.Duration(cfg.Kafka.BatchTimeoutMillis) * time.Millisecond
+	}
+	if cfg.Kafka.MaxAttempts > 0 {
+		w.MaxAttempts = cfg.Kafka.MaxAttempts
+	}
+	if cfg.Kafka.RequiredAcks != 0 {
+		w.RequiredAcks = kafka.RequiredAcks(cfg.Kafka.RequiredAcks)
+	}
 	return &kafkaProducer{
 		writer: w,
 		logger: logger,
@@ -53,13 +66,23 @@ func newKafkaProducer(cfg *conf.Config, logger *zap.Logger) producer {
 func (p *kafkaProducer) Publish(ctx context.Context, msg StoryJobMessage) error {
 	bytes, err := json.Marshal(msg)
 	if err != nil {
-		return err
+		return WrapServiceError(ErrCodeJobEnqueueFailed, "序列化 Kafka 消息失败", err)
 	}
-	return p.writer.WriteMessages(ctx, kafka.Message{
+	if err := p.writer.WriteMessages(ctx, kafka.Message{
 		Key:   []byte(msg.OperationID),
 		Value: bytes,
 		Time:  msg.CreatedAt,
-	})
+	}); err != nil {
+		return WrapServiceError(ErrCodeJobEnqueueFailed, "Kafka 写入失败", err)
+	}
+	return nil
+}
+
+func (p *kafkaProducer) Close() error {
+	if p == nil || p.writer == nil {
+		return nil
+	}
+	return p.writer.Close()
 }
 
 type failingProducer struct {
@@ -70,7 +93,11 @@ func (f *failingProducer) Publish(_ context.Context, _ StoryJobMessage) error {
 	if f.err != nil {
 		return f.err
 	}
-	return errors.New("kafka producer unavailable")
+	return NewServiceError(ErrCodeKafkaConfigInvalid, "Kafka 生产者不可用")
+}
+
+func (f *failingProducer) Close() error {
+	return nil
 }
 
 func ensureKafkaTopic(cfg conf.Kafka) error {

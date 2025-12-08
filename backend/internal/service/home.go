@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -20,6 +22,11 @@ import (
 type HomeService struct {
 	data       *data.Data
 	dispatcher *jobDispatcher
+}
+
+type BatchCreateItemResult struct {
+	Result *CreateHomeResult
+	Err    error
 }
 
 type StoryJobMessage struct {
@@ -67,6 +74,13 @@ func NewHomeService(cfg *conf.Config, d *data.Data, logger *zap.Logger) *HomeSer
 	}
 }
 
+func (s *HomeService) Close() error {
+	if s == nil || s.dispatcher == nil {
+		return nil
+	}
+	return s.dispatcher.Close()
+}
+
 func (s *HomeService) Create(ctx context.Context, userID uuid.UUID, params CreateHomeParams) (*CreateHomeResult, error) {
 	if err := validateStyle(params.Style); err != nil {
 		return nil, err
@@ -85,7 +99,7 @@ func (s *HomeService) Create(ctx context.Context, userID uuid.UUID, params Creat
 		story.Status = global.StoryGen
 
 		if err := txCtx.Create(story).Error; err != nil {
-			return fmt.Errorf("create story: %w", err)
+			return WrapServiceError(ErrCodeDatabaseActionFailed, "创建故事记录失败", err)
 		}
 
 		payload := StoryJobPayload{
@@ -95,12 +109,12 @@ func (s *HomeService) Create(ctx context.Context, userID uuid.UUID, params Creat
 		}
 		payloadBytes, err := json.Marshal(payload)
 		if err != nil {
-			return fmt.Errorf("marshal payload: %w", err)
+			return WrapServiceError(ErrCodeOperationCreateFailed, "序列化任务参数失败", err)
 		}
 
 		op = model.NewOperation(uuid.New(), userID, story.ID, uuid.Nil, global.OpStoryboard, datatypes.JSON(payloadBytes))
 		if err := txCtx.Create(op).Error; err != nil {
-			return fmt.Errorf("create operation: %w", err)
+			return WrapServiceError(ErrCodeOperationCreateFailed, "创建任务记录失败", err)
 		}
 
 		job = StoryJobMessage{
@@ -117,13 +131,18 @@ func (s *HomeService) Create(ctx context.Context, userID uuid.UUID, params Creat
 		return nil, err
 	}
 
+	InvalidateStoryListCache(ctx, s.data, userID)
+
 	if err := s.dispatcher.Dispatch(job); err != nil {
 		_ = UpdateOperationFailure(ctx, s.data, op.ID, err)
 		_ = s.data.DB.WithContext(ctx).
 			Model(&model.Story{}).
 			Where("id = ?", story.ID).
 			Update("status", global.StoryFail).Error
-		return nil, fmt.Errorf("dispatch storyboard job: %w", err)
+		if svcErr, ok := AsServiceError(err); ok {
+			return nil, svcErr
+		}
+		return nil, WrapServiceError(ErrCodeJobEnqueueFailed, "派发故事生成任务失败", err)
 	}
 
 	return &CreateHomeResult{
@@ -133,9 +152,55 @@ func (s *HomeService) Create(ctx context.Context, userID uuid.UUID, params Creat
 	}, nil
 }
 
+func (s *HomeService) CreateBatch(ctx context.Context, userID uuid.UUID, items []CreateHomeParams, maxConcurrency int) ([]BatchCreateItemResult, error) {
+	if len(items) == 0 {
+		return nil, NewServiceError(ErrCodeInvalidRequest, "没有可生成的故事任务")
+	}
+	if maxConcurrency <= 0 {
+		maxConcurrency = 1
+	}
+	if maxConcurrency > len(items) {
+		maxConcurrency = len(items)
+	}
+
+	results := make([]BatchCreateItemResult, len(items))
+	var wg sync.WaitGroup
+	pool, err := ants.NewPool(maxConcurrency)
+	if err != nil {
+		return nil, WrapServiceError(ErrCodeJobEnqueueFailed, "初始化批量任务协程池失败", err)
+	}
+	defer pool.Release()
+
+	for idx, item := range items {
+		wg.Add(1)
+		index := idx
+		params := item
+		task := func() {
+			defer wg.Done()
+			if err := ctx.Err(); err != nil {
+				results[index].Err = err
+				return
+			}
+			res, err := s.Create(ctx, userID, params)
+			if err != nil {
+				results[index].Err = err
+				return
+			}
+			results[index].Result = res
+		}
+		if err := pool.Submit(task); err != nil {
+			wg.Done()
+			results[index].Err = err
+		}
+	}
+
+	wg.Wait()
+	return results, nil
+}
+
 func validateStyle(style string) error {
 	if _, ok := allowedStyles[style]; !ok {
-		return fmt.Errorf("unsupported style: %s", style)
+		return WrapServiceError(ErrCodeInvalidStyle, fmt.Sprintf("不支持的风格: %s", style), nil)
 	}
 	return nil
 }

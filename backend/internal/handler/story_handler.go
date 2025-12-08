@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -21,6 +22,8 @@ type StoryHandler struct {
 	story *service.StoryService
 }
 
+const batchCreateMaxConcurrency = 3
+
 func NewStoryHandler(home *service.HomeService, story *service.StoryService) *StoryHandler {
 	return &StoryHandler{
 		home:  home,
@@ -32,6 +35,10 @@ type createStoryRequest struct {
 	DisplayName   string `json:"display_name" binding:"required"`
 	ScriptContent string `json:"script_content" binding:"required"`
 	Style         string `json:"style" binding:"required"`
+}
+
+type batchCreateStoryRequest struct {
+	Items []createStoryRequest `json:"items" binding:"required"`
 }
 
 func (h *StoryHandler) Create(c *gin.Context) {
@@ -61,11 +68,75 @@ func (h *StoryHandler) Create(c *gin.Context) {
 		},
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondServiceError(c, err)
 		return
 	}
 
 	c.JSON(http.StatusAccepted, result)
+}
+
+func (h *StoryHandler) BatchCreate(c *gin.Context) {
+	var req batchCreateStoryRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if len(req.Items) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "items 不能为空"})
+		return
+	}
+	for idx, item := range req.Items {
+		if err := validate.Struct(item); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": fmt.Sprintf("items[%d] 参数不合法: %v", idx, err),
+			})
+			return
+		}
+	}
+
+	userID, err := userIDFromContext(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	params := make([]service.CreateHomeParams, len(req.Items))
+	for idx, item := range req.Items {
+		params[idx] = service.CreateHomeParams{
+			DisplayName:   item.DisplayName,
+			ScriptContent: item.ScriptContent,
+			Style:         item.Style,
+		}
+	}
+
+	results, err := h.home.CreateBatch(c.Request.Context(), userID, params, batchCreateMaxConcurrency)
+	if err != nil {
+		respondServiceError(c, err)
+		return
+	}
+
+	respItems := make([]gin.H, len(results))
+	for idx, item := range results {
+		entry := gin.H{
+			"index":   idx,
+			"success": item.Err == nil,
+		}
+		if item.Err != nil {
+			if svcErr, ok := service.AsServiceError(item.Err); ok {
+				entry["error_code"] = svcErr.Code
+				entry["error_message"] = svcErr.Message
+			} else {
+				entry["error_message"] = item.Err.Error()
+			}
+		} else if item.Result != nil {
+			entry["operation_name"] = item.Result.OperationName
+			entry["state"] = item.Result.State
+			entry["create_time"] = item.Result.CreateTime
+		}
+		respItems[idx] = entry
+	}
+
+	c.JSON(http.StatusAccepted, gin.H{"items": respItems})
 }
 
 func (h *StoryHandler) List(c *gin.Context) {
@@ -87,7 +158,6 @@ func (h *StoryHandler) List(c *gin.Context) {
 	var startPtr *time.Time
 	var endPtr *time.Time
 
-	// 严格校验分页参数：如果请求中包含该参数但为空或非法，则返回 400；否则解析并赋值
 	if _, ok := rawQ["page_size"]; ok {
 		if pageSizeStr == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid page_size"})
@@ -126,7 +196,6 @@ func (h *StoryHandler) List(c *gin.Context) {
 		return nil, false, err
 	}
 	endIsDate := false
-	// 解析时间范围：若请求中包含参数但为空则视为非法；解析错误返回 400
 	if _, ok := rawQ["start_time"]; ok {
 		if startTimeStr == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid start_time"})
@@ -186,7 +255,7 @@ func (h *StoryHandler) List(c *gin.Context) {
 
 	stories, total, err := h.story.ListStories(c.Request.Context(), userID, opts)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondServiceError(c, err)
 		return
 	}
 	items := buildStoryListItems(stories)
@@ -217,7 +286,7 @@ func (h *StoryHandler) Get(c *gin.Context) {
 	}
 	story, shots, err := h.story.Get(c.Request.Context(), userID, storyUUID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondServiceError(c, err)
 		return
 	}
 	shotItems := make([]gin.H, 0, len(shots))

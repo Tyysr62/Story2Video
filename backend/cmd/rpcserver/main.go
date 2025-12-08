@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc"
 
 	"story2video-backend/internal/conf"
+	"story2video-backend/internal/rpc/interceptor"
 	"story2video-backend/internal/rpc/modelpb"
 	"story2video-backend/internal/rpc/modelserver"
 	pkgLogger "story2video-backend/pkg/logger"
@@ -46,7 +47,18 @@ func main() {
 	}
 	defer lis.Close()
 
-	grpcServer := grpc.NewServer()
+	rateLimit := cfg.Pool.Size
+	if rateLimit <= 0 {
+		rateLimit = 8
+	}
+	limiter := interceptor.NewRateLimiter(rateLimit)
+	grpcServer := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(
+			interceptor.RateLimitInterceptor(limiter),
+			interceptor.LoggingInterceptor(log),
+			interceptor.RecoveryInterceptor(log),
+		),
+	)
 	modelpb.RegisterStoryboardServiceServer(grpcServer, server)
 
 	go func() {

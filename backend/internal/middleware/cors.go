@@ -8,34 +8,30 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// CORSConfig holds CORS middleware configuration
 type CORSConfig struct {
 	AllowOrigins     []string
 	AllowMethods     []string
 	AllowHeaders     []string
 	ExposeHeaders    []string
 	AllowCredentials bool
-	MaxAge           int // seconds
+	MaxAge           int
 }
 
-// DefaultCORSConfig returns the default CORS configuration
 func DefaultCORSConfig() CORSConfig {
 	return CORSConfig{
-		AllowOrigins: []string{"*"},
-		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders: []string{"Authorization", "Content-Type", "X-User-ID"},
-		ExposeHeaders: []string{},
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Authorization", "Content-Type", "X-User-ID"},
+		ExposeHeaders:    []string{},
 		AllowCredentials: false,
-		MaxAge:           86400, // 24 hours
+		MaxAge:           86400,
 	}
 }
 
-// CORS returns a CORS middleware with default config (allows all origins)
 func CORS() gin.HandlerFunc {
 	return CORSWithConfig(DefaultCORSConfig())
 }
 
-// CORSWithOrigins returns a CORS middleware with specified allowed origins
 func CORSWithOrigins(origins []string) gin.HandlerFunc {
 	cfg := DefaultCORSConfig()
 	if len(origins) > 0 {
@@ -44,9 +40,7 @@ func CORSWithOrigins(origins []string) gin.HandlerFunc {
 	return CORSWithConfig(cfg)
 }
 
-// CORSWithConfig returns a CORS middleware with custom configuration
 func CORSWithConfig(cfg CORSConfig) gin.HandlerFunc {
-	// Build allow origins map for O(1) lookup
 	allowOriginsMap := make(map[string]bool)
 	allowAll := false
 	for _, origin := range cfg.AllowOrigins {
@@ -65,7 +59,6 @@ func CORSWithConfig(cfg CORSConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		origin := c.GetHeader("Origin")
 
-		// Determine allowed origin
 		if allowAll {
 			c.Header("Access-Control-Allow-Origin", "*")
 		} else if origin != "" && allowOriginsMap[origin] {

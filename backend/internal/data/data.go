@@ -25,9 +25,7 @@ type Data struct {
 	RPC   *modelclient.Client
 }
 
-// DataOptions 用于配置 Data 初始化选项
 type DataOptions struct {
-	// SkipMigration 如果为 true，则跳过数据库迁移（适用于 Worker 等不需要迁移的服务）
 	SkipMigration bool
 }
 
