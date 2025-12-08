@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
@@ -48,10 +47,6 @@ func main() {
 	}
 	defer lis.Close()
 
-	timeout := time.Duration(cfg.ModelService.Timeout) * time.Second
-	if timeout <= 0 {
-		timeout = 2 * time.Minute
-	}
 	rateLimit := cfg.Pool.Size
 	if rateLimit <= 0 {
 		rateLimit = 8
@@ -59,7 +54,6 @@ func main() {
 	limiter := interceptor.NewRateLimiter(rateLimit)
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
-			interceptor.TimeoutInterceptor(timeout),
 			interceptor.RateLimitInterceptor(limiter),
 			interceptor.LoggingInterceptor(log),
 			interceptor.RecoveryInterceptor(log),

@@ -207,11 +207,6 @@ func convertShot(shot apiShot, logger *zap.Logger) *modelpb.ShotResult {
 	voice := firstNonEmpty(shot.Voice, shot.Tone)
 	imageURL := firstNonEmpty(shot.ImageURL, shot.ImagePath)
 
-	imageBytes := decodeBase64(shot.ImageBase64, shot.ImageData)
-	if len(imageBytes) == 0 && logger != nil {
-		logger.Debug("shot missing image data", zap.String("shot_id", shotID))
-	}
-
 	return &modelpb.ShotResult{
 		ShotId:      shotID,
 		Sequence:    sequence,
@@ -225,7 +220,6 @@ func convertShot(shot apiShot, logger *zap.Logger) *modelpb.ShotResult {
 		Voice:       voice,
 		ImageUrl:    imageURL,
 		Bgm:         shot.BGM,
-		ImageData:   imageBytes,
 	}
 }
 
