@@ -6,12 +6,14 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
 	"story2video-backend/internal/conf"
+	"story2video-backend/internal/rpc/interceptor"
 	"story2video-backend/internal/rpc/modelpb"
 	"story2video-backend/internal/rpc/modelserver"
 	pkgLogger "story2video-backend/pkg/logger"
@@ -46,7 +48,23 @@ func main() {
 	}
 	defer lis.Close()
 
-	grpcServer := grpc.NewServer()
+	timeout := time.Duration(cfg.ModelService.Timeout) * time.Second
+	if timeout <= 0 {
+		timeout = 2 * time.Minute
+	}
+	rateLimit := cfg.Pool.Size
+	if rateLimit <= 0 {
+		rateLimit = 8
+	}
+	limiter := interceptor.NewRateLimiter(rateLimit)
+	grpcServer := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(
+			interceptor.TimeoutInterceptor(timeout),
+			interceptor.RateLimitInterceptor(limiter),
+			interceptor.LoggingInterceptor(log),
+			interceptor.RecoveryInterceptor(log),
+		),
+	)
 	modelpb.RegisterStoryboardServiceServer(grpcServer, server)
 
 	go func() {

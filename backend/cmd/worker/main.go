@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/panjf2000/ants/v2"
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -30,6 +32,8 @@ type worker struct {
 	client     modelpb.StoryboardServiceClient
 	logger     *zap.Logger
 	reader     *kafka.Reader
+	pool       *ants.Pool
+	rpcTimeout time.Duration
 	workerName string
 }
 
@@ -68,11 +72,32 @@ func main() {
 	reader := newKafkaReader(cfg)
 	defer reader.Close()
 
+	poolSize := cfg.Pool.Size
+	if poolSize <= 0 {
+		poolSize = runtime.NumCPU()
+	}
+	expiry := time.Duration(cfg.Pool.ExpirySeconds) * time.Second
+	if expiry <= 0 {
+		expiry = 5 * time.Minute
+	}
+	jobPool, err := ants.NewPool(poolSize, ants.WithExpiryDuration(expiry))
+	if err != nil {
+		panic(fmt.Errorf("init worker pool: %w", err))
+	}
+	defer jobPool.Release()
+
+	rpcTimeout := time.Duration(cfg.ModelService.Timeout) * time.Second
+	if rpcTimeout <= 0 {
+		rpcTimeout = 2 * time.Minute
+	}
+
 	w := &worker{
 		data:       dataLayer,
 		client:     modelpb.NewStoryboardServiceClient(modelConn.Conn()),
 		logger:     log,
 		reader:     reader,
+		pool:       jobPool,
+		rpcTimeout: rpcTimeout,
 		workerName: "story-worker",
 	}
 
@@ -104,11 +129,11 @@ func (w *worker) run(ctx context.Context) {
 }
 
 func (w *worker) submitMessage(ctx context.Context, msg kafka.Message) error {
-	if w.data == nil || w.data.Pool == nil {
+	if w.pool == nil {
 		w.processMessage(ctx, msg)
 		return nil
 	}
-	return w.data.Pool.Submit(func() {
+	return w.pool.Submit(func() {
 		w.processMessage(ctx, msg)
 	})
 }
@@ -176,8 +201,12 @@ func (w *worker) handleCreate(ctx context.Context, job service.StoryJobMessage) 
 		ScriptContent: job.Payload.ScriptContent,
 		Style:         job.Payload.Style,
 	}
-	resp, err := w.client.CreateStoryboardTask(ctx, req)
-	if err != nil {
+	var resp *modelpb.StoryboardReply
+	if err := w.callRPCWithTimeout(ctx, func(rpcCtx context.Context) error {
+		var rpcErr error
+		resp, rpcErr = w.client.CreateStoryboardTask(rpcCtx, req)
+		return rpcErr
+	}); err != nil {
 		return service.WrapServiceError(service.ErrCodeWorkerExecutionFailed, "调用模型服务创建故事失败", err)
 	}
 	if resp == nil || len(resp.Shots) == 0 {
@@ -195,8 +224,12 @@ func (w *worker) handleRegenerate(ctx context.Context, job service.StoryJobMessa
 		Style:       job.Payload.Style,
 		UserId:      job.UserID,
 	}
-	resp, err := w.client.RegenerateShot(ctx, req)
-	if err != nil {
+	var resp *modelpb.RegenerateShotReply
+	if err := w.callRPCWithTimeout(ctx, func(rpcCtx context.Context) error {
+		var rpcErr error
+		resp, rpcErr = w.client.RegenerateShot(rpcCtx, req)
+		return rpcErr
+	}); err != nil {
 		return service.WrapServiceError(service.ErrCodeWorkerExecutionFailed, "调用模型服务重生成镜头失败", err)
 	}
 	if resp == nil || resp.Shot == nil {
@@ -211,8 +244,12 @@ func (w *worker) handleRender(ctx context.Context, job service.StoryJobMessage) 
 		StoryId:     job.StoryID,
 		UserId:      job.UserID,
 	}
-	resp, err := w.client.RenderVideo(ctx, req)
-	if err != nil {
+	var resp *modelpb.RenderVideoReply
+	if err := w.callRPCWithTimeout(ctx, func(rpcCtx context.Context) error {
+		var rpcErr error
+		resp, rpcErr = w.client.RenderVideo(rpcCtx, req)
+		return rpcErr
+	}); err != nil {
 		return service.WrapServiceError(service.ErrCodeWorkerExecutionFailed, "调用模型服务渲染视频失败", err)
 	}
 	storyID, err := uuid.Parse(job.StoryID)
@@ -255,6 +292,19 @@ func (w *worker) persistShots(ctx context.Context, job service.StoryJobMessage, 
 		w.logWarn(service.LogMsgResultDataMissing, err, &job, zap.String(string(service.LogKeyStoryID), storyUUID.String()))
 	}
 	return nil
+}
+
+func (w *worker) callRPCWithTimeout(ctx context.Context, fn func(context.Context) error) error {
+	if w.rpcTimeout <= 0 {
+		return fn(ctx)
+	}
+	rpcCtx := ctx
+	if deadline, ok := ctx.Deadline(); !ok || time.Until(deadline) > w.rpcTimeout {
+		var cancel context.CancelFunc
+		rpcCtx, cancel = context.WithTimeout(ctx, w.rpcTimeout)
+		defer cancel()
+	}
+	return fn(rpcCtx)
 }
 
 func (w *worker) upsertShot(ctx context.Context, job service.StoryJobMessage, shot *modelpb.ShotResult) error {

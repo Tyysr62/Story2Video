@@ -21,6 +21,7 @@ import (
 )
 
 type Server struct {
+	modelpb.UnimplementedStoryboardServiceServer
 	baseURL string
 	client  *http.Client
 	logger  *zap.Logger
