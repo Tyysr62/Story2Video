@@ -23,7 +23,7 @@ func NewRouter(cfg *conf.Config, log *zap.Logger, d *data.Data) *gin.Engine {
 	api.Use(middleware.User())
 
 	homeService := service.NewHomeService(cfg, d, log)
-	storyService := service.NewStoryService(d, log)
+	storyService := service.NewStoryService(cfg, d, log)
 	shotService := service.NewShotService(cfg, d, log)
 
 	storyHandler := handler.NewStoryHandler(homeService, storyService)

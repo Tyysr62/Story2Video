@@ -29,12 +29,13 @@ type Database struct {
 }
 
 type Redis struct {
-	Host         string `mapstructure:"host"`
-	Port         int    `mapstructure:"port"`
-	Password     string `mapstructure:"password"`
-	DB           int    `mapstructure:"db"`
-	PoolSize     int    `mapstructure:"pool_size"`
-	MinIdleConns int    `mapstructure:"min_idle_conns"`
+	Host            string `mapstructure:"host"`
+	Port            int    `mapstructure:"port"`
+	Password        string `mapstructure:"password"`
+	DB              int    `mapstructure:"db"`
+	PoolSize        int    `mapstructure:"pool_size"`
+	MinIdleConns    int    `mapstructure:"min_idle_conns"`
+	CacheTTLSeconds int    `mapstructure:"cache_ttl_seconds"`
 }
 
 type Pool struct {
@@ -133,6 +134,7 @@ func overrideFromEnv(cfg *Config) {
 	setString("REDIS_HOST", &cfg.Redis.Host)
 	setInt("REDIS_PORT", &cfg.Redis.Port)
 	setString("REDIS_PASSWORD", &cfg.Redis.Password)
+	setInt("REDIS_CACHE_TTL_SECONDS", &cfg.Redis.CacheTTLSeconds)
 
 	setInt("POOL_SIZE", &cfg.Pool.Size)
 	setInt("POOL_EXPIRY_SECONDS", &cfg.Pool.ExpirySeconds)

@@ -117,6 +117,8 @@ func (s *HomeService) Create(ctx context.Context, userID uuid.UUID, params Creat
 		return nil, err
 	}
 
+	InvalidateStoryListCache(ctx, s.data, userID)
+
 	if err := s.dispatcher.Dispatch(job); err != nil {
 		_ = UpdateOperationFailure(ctx, s.data, op.ID, err)
 		_ = s.data.DB.WithContext(ctx).
