@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 
 	"story2video-backend/internal/conf"
 	"story2video-backend/internal/data"
@@ -37,7 +37,7 @@ func (s *ShotService) List(ctx context.Context, userID, storyID uuid.UUID) ([]mo
 		Where("story_id = ? AND user_id = ?", storyID, userID).
 		Order(ShotSequenceOrderClause).
 		Find(&shots).Error; err != nil {
-		return nil, fmt.Errorf("list shots: %w", err)
+		return nil, WrapServiceError(ErrCodeDatabaseActionFailed, "查询镜头列表失败", err)
 	}
 	if len(shots) == 0 {
 		if _, err := s.getStory(ctx, userID, storyID); err != nil {
@@ -52,7 +52,10 @@ func (s *ShotService) Get(ctx context.Context, userID, storyID, shotID uuid.UUID
 	if err := s.data.DB.WithContext(ctx).
 		Where("id = ? AND story_id = ? AND user_id = ?", shotID, storyID, userID).
 		First(&shot).Error; err != nil {
-		return nil, fmt.Errorf("get shot: %w", err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, NewServiceError(ErrCodeShotNotFound, "镜头不存在")
+		}
+		return nil, WrapServiceError(ErrCodeDatabaseActionFailed, "查询镜头详情失败", err)
 	}
 	return &shot, nil
 }
@@ -71,12 +74,12 @@ func (s *ShotService) UpdateScript(ctx context.Context, userID, storyID, shotID 
 		script = shot.Details
 	}
 	if script == "" {
-		return nil, errors.New("details cannot be empty")
+		return nil, NewServiceError(ErrCodeInvalidShotDetails, "镜头脚本不能为空")
 	}
 
 	// Verify shot exists before creating operation with foreign key reference
 	if shot.ID == uuid.Nil {
-		return nil, errors.New("invalid shot id")
+		return nil, NewServiceError(ErrCodeInvalidRequest, "无效的镜头 ID")
 	}
 
 	payloadBytes, err := json.Marshal(map[string]string{
@@ -84,12 +87,12 @@ func (s *ShotService) UpdateScript(ctx context.Context, userID, storyID, shotID 
 		"details": script,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("marshal payload: %w", err)
+		return nil, WrapServiceError(ErrCodeOperationCreateFailed, "序列化镜头任务参数失败", err)
 	}
 
 	op := model.NewOperation(uuid.New(), userID, storyID, shotID, global.OpShotRegen, datatypes.JSON(payloadBytes))
 	if err := s.data.DB.WithContext(ctx).Create(op).Error; err != nil {
-		return nil, fmt.Errorf("create operation: %w", err)
+		return nil, WrapServiceError(ErrCodeOperationCreateFailed, "创建镜头任务失败", err)
 	}
 
 	job := StoryJobMessage{
@@ -106,7 +109,10 @@ func (s *ShotService) UpdateScript(ctx context.Context, userID, storyID, shotID 
 	}
 	if err := s.dispatcher.Dispatch(job); err != nil {
 		_ = UpdateOperationFailure(ctx, s.data, op.ID, err)
-		return nil, err
+		if svcErr, ok := AsServiceError(err); ok {
+			return nil, svcErr
+		}
+		return nil, WrapServiceError(ErrCodeJobEnqueueFailed, "投递镜头任务失败", err)
 	}
 	return op, nil
 }
@@ -121,12 +127,12 @@ func (s *ShotService) RenderStory(ctx context.Context, userID, storyID uuid.UUID
 		"story_id": storyID.String(),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("marshal payload: %w", err)
+		return nil, WrapServiceError(ErrCodeOperationCreateFailed, "序列化故事渲染参数失败", err)
 	}
 
 	op := model.NewOperation(uuid.New(), userID, storyID, uuid.Nil, global.OpVideoRender, datatypes.JSON(payloadBytes))
 	if err := s.data.DB.WithContext(ctx).Create(op).Error; err != nil {
-		return nil, fmt.Errorf("create render operation: %w", err)
+		return nil, WrapServiceError(ErrCodeOperationCreateFailed, "创建渲染任务失败", err)
 	}
 
 	job := StoryJobMessage{
@@ -143,14 +149,17 @@ func (s *ShotService) RenderStory(ctx context.Context, userID, storyID uuid.UUID
 
 	if err := s.dispatcher.Dispatch(job); err != nil {
 		_ = UpdateOperationFailure(ctx, s.data, op.ID, err)
-		return nil, err
+		if svcErr, ok := AsServiceError(err); ok {
+			return nil, svcErr
+		}
+		return nil, WrapServiceError(ErrCodeJobEnqueueFailed, "投递渲染任务失败", err)
 	}
 	return op, nil
 }
 
 func (s *ShotService) Update(ctx context.Context, userID, storyID, shotID uuid.UUID, fields map[string]interface{}) (*model.Shot, error) {
 	if len(fields) == 0 {
-		return nil, errors.New("no fields to update")
+		return nil, NewServiceError(ErrCodeInvalidRequest, "没有可更新的字段")
 	}
 	allowed := map[string]struct{}{
 		"title":       {},
@@ -170,13 +179,13 @@ func (s *ShotService) Update(ctx context.Context, userID, storyID, shotID uuid.U
 		}
 	}
 	if len(updates) == 0 {
-		return nil, errors.New("no valid fields provided")
+		return nil, NewServiceError(ErrCodeInvalidRequest, "没有可更新的字段")
 	}
 	if err := s.data.DB.WithContext(ctx).
 		Model(&model.Shot{}).
 		Where("id = ? AND story_id = ? AND user_id = ?", shotID, storyID, userID).
 		Updates(updates).Error; err != nil {
-		return nil, fmt.Errorf("update shot fields: %w", err)
+		return nil, WrapServiceError(ErrCodeDatabaseActionFailed, "更新镜头字段失败", err)
 	}
 	return s.Get(ctx, userID, storyID, shotID)
 }
@@ -186,7 +195,10 @@ func (s *ShotService) getStory(ctx context.Context, userID, storyID uuid.UUID) (
 	if err := s.data.DB.WithContext(ctx).
 		Where("id = ? AND user_id = ?", storyID, userID).
 		First(&story).Error; err != nil {
-		return nil, fmt.Errorf("get story: %w", err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, NewServiceError(ErrCodeStoryNotFound, "故事不存在")
+		}
+		return nil, WrapServiceError(ErrCodeDatabaseActionFailed, "查询故事失败", err)
 	}
 	return &story, nil
 }

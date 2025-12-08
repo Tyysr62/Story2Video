@@ -26,9 +26,9 @@ type kafkaProducer struct {
 
 func newKafkaProducer(cfg *conf.Config, logger *zap.Logger) producer {
 	if len(cfg.Kafka.Brokers) == 0 || cfg.Kafka.Topic == "" {
-		err := fmt.Errorf("kafka config missing, brokers=%v, topic=%s", cfg.Kafka.Brokers, cfg.Kafka.Topic)
+		err := NewServiceError(ErrCodeKafkaConfigInvalid, fmt.Sprintf("缺少 Kafka 配置，brokers=%v, topic=%s", cfg.Kafka.Brokers, cfg.Kafka.Topic))
 		if logger != nil {
-			logger.Error("kafka config invalid", zap.Error(err))
+			logger.Error(string(LogMsgKafkaConfigInvalid), zap.Error(err))
 		}
 		return &failingProducer{err: err}
 	}
@@ -53,13 +53,16 @@ func newKafkaProducer(cfg *conf.Config, logger *zap.Logger) producer {
 func (p *kafkaProducer) Publish(ctx context.Context, msg StoryJobMessage) error {
 	bytes, err := json.Marshal(msg)
 	if err != nil {
-		return err
+		return WrapServiceError(ErrCodeJobEnqueueFailed, "序列化 Kafka 消息失败", err)
 	}
-	return p.writer.WriteMessages(ctx, kafka.Message{
+	if err := p.writer.WriteMessages(ctx, kafka.Message{
 		Key:   []byte(msg.OperationID),
 		Value: bytes,
 		Time:  msg.CreatedAt,
-	})
+	}); err != nil {
+		return WrapServiceError(ErrCodeJobEnqueueFailed, "Kafka 写入失败", err)
+	}
+	return nil
 }
 
 type failingProducer struct {
@@ -70,7 +73,7 @@ func (f *failingProducer) Publish(_ context.Context, _ StoryJobMessage) error {
 	if f.err != nil {
 		return f.err
 	}
-	return errors.New("kafka producer unavailable")
+	return NewServiceError(ErrCodeKafkaConfigInvalid, "Kafka 生产者不可用")
 }
 
 func ensureKafkaTopic(cfg conf.Kafka) error {

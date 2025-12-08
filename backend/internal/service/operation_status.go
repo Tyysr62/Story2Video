@@ -17,13 +17,16 @@ func UpdateOperationRunning(ctx context.Context, d *data.Data, opID uuid.UUID) e
 		return nil
 	}
 	now := time.Now()
-	return d.DB.WithContext(ctx).
+	if err := d.DB.WithContext(ctx).
 		Model(&model.Operation{}).
 		Where("id = ?", opID).
 		Updates(map[string]interface{}{
 			"status":     global.OpRunning,
 			"started_at": now,
-		}).Error
+		}).Error; err != nil {
+		return WrapServiceError(ErrCodeOperationUpdateFailed, "更新任务为执行中失败", err)
+	}
+	return nil
 }
 
 func UpdateOperationSuccess(ctx context.Context, d *data.Data, opID uuid.UUID, workerName string) error {
@@ -31,7 +34,7 @@ func UpdateOperationSuccess(ctx context.Context, d *data.Data, opID uuid.UUID, w
 		return nil
 	}
 	now := time.Now()
-	return d.DB.WithContext(ctx).
+	if err := d.DB.WithContext(ctx).
 		Model(&model.Operation{}).
 		Where("id = ?", opID).
 		Updates(map[string]interface{}{
@@ -39,7 +42,10 @@ func UpdateOperationSuccess(ctx context.Context, d *data.Data, opID uuid.UUID, w
 			"finished_at": now,
 			"error_msg":   "",
 			"worker":      workerName,
-		}).Error
+		}).Error; err != nil {
+		return WrapServiceError(ErrCodeOperationUpdateFailed, "更新任务为成功状态失败", err)
+	}
+	return nil
 }
 
 func UpdateOperationFailure(ctx context.Context, d *data.Data, opID uuid.UUID, cause error) error {
@@ -51,22 +57,28 @@ func UpdateOperationFailure(ctx context.Context, d *data.Data, opID uuid.UUID, c
 	if cause != nil {
 		msg = cause.Error()
 	}
-	return d.DB.WithContext(ctx).
+	if err := d.DB.WithContext(ctx).
 		Model(&model.Operation{}).
 		Where("id = ?", opID).
 		Updates(map[string]interface{}{
 			"status":      global.OpFail,
 			"finished_at": now,
 			"error_msg":   msg,
-		}).Error
+		}).Error; err != nil {
+		return WrapServiceError(ErrCodeOperationUpdateFailed, "更新任务为失败状态失败", err)
+	}
+	return nil
 }
 
 func IncrementOperationRetry(ctx context.Context, d *data.Data, opID uuid.UUID) error {
 	if d == nil || d.DB == nil {
 		return nil
 	}
-	return d.DB.WithContext(ctx).
+	if err := d.DB.WithContext(ctx).
 		Model(&model.Operation{}).
 		Where("id = ?", opID).
-		UpdateColumn("retries", gorm.Expr("retries + ?", 1)).Error
+		UpdateColumn("retries", gorm.Expr("retries + ?", 1)).Error; err != nil {
+		return WrapServiceError(ErrCodeOperationUpdateFailed, "更新任务重试次数失败", err)
+	}
+	return nil
 }

@@ -61,7 +61,7 @@ func (h *StoryHandler) Create(c *gin.Context) {
 		},
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondServiceError(c, err)
 		return
 	}
 
@@ -186,7 +186,7 @@ func (h *StoryHandler) List(c *gin.Context) {
 
 	stories, total, err := h.story.ListStories(c.Request.Context(), userID, opts)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondServiceError(c, err)
 		return
 	}
 	items := buildStoryListItems(stories)
@@ -217,7 +217,7 @@ func (h *StoryHandler) Get(c *gin.Context) {
 	}
 	story, shots, err := h.story.Get(c.Request.Context(), userID, storyUUID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondServiceError(c, err)
 		return
 	}
 	shotItems := make([]gin.H, 0, len(shots))
