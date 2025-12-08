@@ -15,6 +15,7 @@ import (
 	"story2video-backend/internal/conf"
 	"story2video-backend/internal/data"
 	"story2video-backend/internal/router"
+	"story2video-backend/internal/service"
 	pkgLogger "story2video-backend/pkg/logger"
 )
 
@@ -45,7 +46,19 @@ func main() {
 	}
 	defer cleanup()
 
-	engine := router.NewRouter(cfg, log, dataLayer)
+	homeService := service.NewHomeService(cfg, dataLayer, log)
+	storyService := service.NewStoryService(cfg, dataLayer, log)
+	shotService := service.NewShotService(cfg, dataLayer, log)
+	defer func() {
+		if err := homeService.Close(); err != nil {
+			log.Warn("close home service", zap.Error(err))
+		}
+		if err := shotService.Close(); err != nil {
+			log.Warn("close shot service", zap.Error(err))
+		}
+	}()
+
+	engine := router.NewRouter(cfg, log, dataLayer, homeService, storyService, shotService)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.Server.Port),

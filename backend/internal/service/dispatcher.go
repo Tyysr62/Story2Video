@@ -52,3 +52,10 @@ func (d *jobDispatcher) kafkaLogFields(job StoryJobMessage, err error) []zap.Fie
 	fields = append(fields, zap.Error(err))
 	return fields
 }
+
+func (d *jobDispatcher) Close() error {
+	if d == nil || d.producer == nil {
+		return nil
+	}
+	return d.producer.Close()
+}

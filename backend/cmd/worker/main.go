@@ -48,7 +48,6 @@ func main() {
 	}
 	defer func() { _ = log.Sync() }()
 
-	// Worker 跳过数据库迁移，迁移由 API Server 负责
 	dataLayer, cleanup, err := data.NewDataWithOptions(ctx, cfg, log, data.DataOptions{
 		SkipMigration: true,
 	})
@@ -97,13 +96,29 @@ func (w *worker) run(ctx context.Context) {
 			continue
 		}
 
-		if err := w.handleMessage(ctx, m.Value); err != nil {
-			w.logger.Error("process job", zap.Error(err))
+		if err := w.submitMessage(ctx, m); err != nil {
+			w.logger.Error("submit job to pool", zap.Error(err))
+			w.processMessage(ctx, m)
 		}
+	}
+}
 
-		if err := w.reader.CommitMessages(ctx, m); err != nil {
-			w.logger.Error("commit message", zap.Error(err))
-		}
+func (w *worker) submitMessage(ctx context.Context, msg kafka.Message) error {
+	if w.data == nil || w.data.Pool == nil {
+		w.processMessage(ctx, msg)
+		return nil
+	}
+	return w.data.Pool.Submit(func() {
+		w.processMessage(ctx, msg)
+	})
+}
+
+func (w *worker) processMessage(ctx context.Context, msg kafka.Message) {
+	if err := w.handleMessage(ctx, msg.Value); err != nil {
+		w.logger.Error("process job", zap.Error(err))
+	}
+	if err := w.reader.CommitMessages(ctx, msg); err != nil {
+		w.logger.Error("commit message", zap.Error(err))
 	}
 }
 

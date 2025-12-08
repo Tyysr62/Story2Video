@@ -7,7 +7,6 @@ import (
 	grpc "google.golang.org/grpc"
 )
 
-// Reference imports to suppress errors.
 var _ = proto.Marshal
 
 type ShotResult struct {
@@ -132,7 +131,6 @@ func (c *storyboardServiceClient) RenderVideo(ctx context.Context, in *RenderVid
 	return out, nil
 }
 
-// Server API for StoryboardService service
 type StoryboardServiceServer interface {
 	CreateStoryboardTask(context.Context, *CreateStoryboardTaskRequest) (*StoryboardReply, error)
 	RegenerateShot(context.Context, *RegenerateShotRequest) (*RegenerateShotReply, error)

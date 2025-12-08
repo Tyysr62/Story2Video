@@ -17,6 +17,7 @@ const kafkaEnsureTopicTimeout = 10 * time.Second
 
 type producer interface {
 	Publish(ctx context.Context, msg StoryJobMessage) error
+	Close() error
 }
 
 type kafkaProducer struct {
@@ -44,6 +45,18 @@ func newKafkaProducer(cfg *conf.Config, logger *zap.Logger) producer {
 		Topic:    cfg.Kafka.Topic,
 		Balancer: &kafka.Hash{},
 	}
+	if cfg.Kafka.WriteTimeoutSeconds > 0 {
+		w.WriteTimeout = time.Duration(cfg.Kafka.WriteTimeoutSeconds) * time.Second
+	}
+	if cfg.Kafka.BatchTimeoutMillis > 0 {
+		w.BatchTimeout = time.Duration(cfg.Kafka.BatchTimeoutMillis) * time.Millisecond
+	}
+	if cfg.Kafka.MaxAttempts > 0 {
+		w.MaxAttempts = cfg.Kafka.MaxAttempts
+	}
+	if cfg.Kafka.RequiredAcks != 0 {
+		w.RequiredAcks = kafka.RequiredAcks(cfg.Kafka.RequiredAcks)
+	}
 	return &kafkaProducer{
 		writer: w,
 		logger: logger,
@@ -65,6 +78,13 @@ func (p *kafkaProducer) Publish(ctx context.Context, msg StoryJobMessage) error 
 	return nil
 }
 
+func (p *kafkaProducer) Close() error {
+	if p == nil || p.writer == nil {
+		return nil
+	}
+	return p.writer.Close()
+}
+
 type failingProducer struct {
 	err error
 }
@@ -74,6 +94,10 @@ func (f *failingProducer) Publish(_ context.Context, _ StoryJobMessage) error {
 		return f.err
 	}
 	return NewServiceError(ErrCodeKafkaConfigInvalid, "Kafka 生产者不可用")
+}
+
+func (f *failingProducer) Close() error {
+	return nil
 }
 
 func ensureKafkaTopic(cfg conf.Kafka) error {

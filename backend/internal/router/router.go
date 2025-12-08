@@ -11,7 +11,14 @@ import (
 	"story2video-backend/internal/service"
 )
 
-func NewRouter(cfg *conf.Config, log *zap.Logger, d *data.Data) *gin.Engine {
+func NewRouter(
+	cfg *conf.Config,
+	log *zap.Logger,
+	d *data.Data,
+	homeService *service.HomeService,
+	storyService *service.StoryService,
+	shotService *service.ShotService,
+) *gin.Engine {
 	gin.SetMode(cfg.Server.Mode)
 
 	r := gin.New()
@@ -22,16 +29,13 @@ func NewRouter(cfg *conf.Config, log *zap.Logger, d *data.Data) *gin.Engine {
 	api := r.Group("/v1")
 	api.Use(middleware.User())
 
-	homeService := service.NewHomeService(cfg, d, log)
-	storyService := service.NewStoryService(cfg, d, log)
-	shotService := service.NewShotService(cfg, d, log)
-
 	storyHandler := handler.NewStoryHandler(homeService, storyService)
 	shotHandler := handler.NewShotHandler(shotService)
 	opHandler := handler.NewOperationHandler(d)
 
 	api.GET("/stories", storyHandler.List)
 	api.POST("/stories", storyHandler.Create)
+	api.POST("/stories/batch", storyHandler.BatchCreate)
 	api.GET("/stories/:storyID", storyHandler.Get)
 	api.GET("/stories/:storyID/shots", shotHandler.List)
 	api.GET("/stories/:storyID/shots/:shotID", shotHandler.Get)

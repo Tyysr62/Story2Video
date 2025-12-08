@@ -31,6 +31,13 @@ func NewShotService(cfg *conf.Config, d *data.Data, logger *zap.Logger) *ShotSer
 	}
 }
 
+func (s *ShotService) Close() error {
+	if s == nil || s.dispatcher == nil {
+		return nil
+	}
+	return s.dispatcher.Close()
+}
+
 func (s *ShotService) List(ctx context.Context, userID, storyID uuid.UUID) ([]model.Shot, error) {
 	var shots []model.Shot
 	if err := s.data.DB.WithContext(ctx).
@@ -77,7 +84,6 @@ func (s *ShotService) UpdateScript(ctx context.Context, userID, storyID, shotID 
 		return nil, NewServiceError(ErrCodeInvalidShotDetails, "镜头脚本不能为空")
 	}
 
-	// Verify shot exists before creating operation with foreign key reference
 	if shot.ID == uuid.Nil {
 		return nil, NewServiceError(ErrCodeInvalidRequest, "无效的镜头 ID")
 	}
