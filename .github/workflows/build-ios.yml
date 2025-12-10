@@ -56,9 +56,14 @@ jobs:
       - name: Build Unsigned Archive
         working-directory: frontend/apps/mobile/ios
         run: |
-          # 获取项目名称 (通常是 xcworkspace 的名字)
-          WORKSPACE_NAME=$(find . -name "*.xcworkspace" | head -n 1)
-          SCHEME_NAME=$(basename "$WORKSPACE_NAME" .xcworkspace)
+          # 优先选择顶层 xcworkspace，跳过 project.xcworkspace；允许自定义变量覆盖
+          WORKSPACE_NAME=${XCODE_WORKSPACE:-$(find . -maxdepth 2 -name "*.xcworkspace" ! -path "*/project.xcworkspace" | head -n 1)}
+          if [ -z "$WORKSPACE_NAME" ]; then
+            WORKSPACE_NAME=$(find . -name "*.xcworkspace" | head -n 1)
+          fi
+
+          # 从 workspace 列表取第一个 scheme，或用自定义变量覆盖
+          SCHEME_NAME=${XCODE_SCHEME:-$(xcodebuild -list -json -workspace "$WORKSPACE_NAME" | jq -r '.workspace.schemes[0]')}
 
           echo "Found Workspace: $WORKSPACE_NAME"
           echo "Scheme Name: $SCHEME_NAME"
@@ -79,9 +84,12 @@ jobs:
       - name: Export IPA
         working-directory: frontend/apps/mobile/ios
         run: |
-          # 再次获取名称
-          WORKSPACE_NAME=$(find . -name "*.xcworkspace" | head -n 1)
-          SCHEME_NAME=$(basename "$WORKSPACE_NAME" .xcworkspace)
+          # 与构建步骤保持一致的 workspace / scheme 选择
+          WORKSPACE_NAME=${XCODE_WORKSPACE:-$(find . -maxdepth 2 -name "*.xcworkspace" ! -path "*/project.xcworkspace" | head -n 1)}
+          if [ -z "$WORKSPACE_NAME" ]; then
+            WORKSPACE_NAME=$(find . -name "*.xcworkspace" | head -n 1)
+          fi
+          SCHEME_NAME=${XCODE_SCHEME:-$(xcodebuild -list -json -workspace "$WORKSPACE_NAME" | jq -r '.workspace.schemes[0]')}
 
           # 定义 .app 的路径
           APP_PATH="build/$SCHEME_NAME.xcarchive/Products/Applications/$SCHEME_NAME.app"

@@ -29,9 +29,10 @@
     "@gluestack-ui/toast": "^1.0.9",
     "@gluestack-ui/utils": "^3.0.12",
     "nativewind": "^4.2.1",
+    "react-dom": "19.1.0",
     "react-native-reanimated": "^4.1.5",
     "react-native-safe-area-context": "^5.6.2",
-    "react-native-svg": "^15.12.1",
+    "react-native-svg": "15.12.1",
     "tailwindcss": "3.4.1"
   }
 }

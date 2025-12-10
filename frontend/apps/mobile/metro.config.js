@@ -13,8 +13,8 @@ const resolveFromWorkspace = (moduleName) =>
 
 const config = getDefaultConfig(projectRoot);
 
-// 1. 扩展 watchFolders，让 Metro 监听根目录下的 node_modules 和 packages
-config.watchFolders = [workspaceRoot];
+// 1. 扩展 watchFolders，让 Metro 监听根目录下的 node_modules 和 packages，同时保留默认值
+config.watchFolders = [...(config.watchFolders || []), workspaceRoot];
 
 // 2. 强制 Metro 解析 workspace 根目录的 node_modules
 // 这解决了"Phantom Dependency"（幻影依赖）问题
