@@ -24,12 +24,18 @@ import { useStory } from "@story2video/core";
 import { Directory, File, Paths } from "expo-file-system";
 import { fetch } from "expo/fetch";
 import * as MediaLibrary from "expo-media-library";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 
 const FALLBACK_THUMBNAIL = "https://placehold.co/600x400/png?text=Video+Preview";
 
 export default function PreviewScreen() {
   const { storyId = "" } = useLocalSearchParams<{ storyId?: string }>();
   const toast = useToast();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === "dark";
+  const pageBg = isDark ? "$backgroundDark950" : "$backgroundLight0";
+  const cardBg = isDark ? "$backgroundDark900" : "$white";
+  const cardBorder = isDark ? "$borderDark700" : "$borderLight200";
   const [exporting, setExporting] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
 
@@ -101,7 +107,12 @@ export default function PreviewScreen() {
   // 加载中状态
   if (isLoading) {
     return (
-      <Box flex={1} bg="$backgroundLight0" justifyContent="center" alignItems="center">
+      <Box
+        flex={1}
+        bg={pageBg}
+        justifyContent="center"
+        alignItems="center"
+      >
         <Spinner size="large" />
         <Text mt="$4">正在加载预览...</Text>
       </Box>
@@ -109,7 +120,7 @@ export default function PreviewScreen() {
   }
 
   return (
-    <Box flex={1} bg="$backgroundLight0" p="$4">
+    <Box flex={1} bg={pageBg} p="$4">
       <VStack flex={1} space="lg">
         {/* Header with back button */}
         <HStack alignItems="center" space="md" mt="$4">
@@ -122,7 +133,12 @@ export default function PreviewScreen() {
               }
             }}
           >
-            <Icon as={ArrowLeftIcon} size="xl" color="$textLight800" />
+            <Icon
+              as={ArrowLeftIcon}
+              size="xl"
+              color="$textLight800"
+              _dark={{ color: "$textDark100" }}
+            />
           </Pressable>
           <Heading size="xl">视频预览</Heading>
         </HStack>
@@ -160,14 +176,14 @@ export default function PreviewScreen() {
         {/* Video Info */}
         <VStack
           space="xs"
-          bg="$white"
+          bg={cardBg}
           p="$4"
           borderRadius="$lg"
           borderWidth={1}
-          borderColor="$borderLight200"
+          borderColor={cardBorder}
         >
           <Heading size="sm">{storyName}.mp4</Heading>
-          <Text size="sm" color="$textLight500">
+          <Text size="sm" color="$textLight500" _dark={{ color: "$textDark300" }}>
             1080p
           </Text>
         </VStack>

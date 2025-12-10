@@ -45,10 +45,14 @@ import {
   getTransitionPlaceholder,
   getTransitionLabel,
 } from "@story2video/core";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 
 export default function ShotDetailScreen() {
   const { id, storyId = "" } = useLocalSearchParams<{ id: string; storyId?: string }>();
   const toast = useToast();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === "dark";
+  const pageBg = isDark ? "$backgroundDark950" : "$backgroundLight0";
 
   // 获取 shot 数据
   const { data: shot, isLoading, error, refetch } = useShot(storyId, id || "");
@@ -200,7 +204,12 @@ export default function ShotDetailScreen() {
   // 加载中状态
   if (isLoading) {
     return (
-      <Box flex={1} bg="$backgroundLight0" justifyContent="center" alignItems="center">
+      <Box
+        flex={1}
+        bg={pageBg}
+        justifyContent="center"
+        alignItems="center"
+      >
         <Spinner size="large" />
         <Text mt="$4">正在加载分镜...</Text>
       </Box>
@@ -210,8 +219,14 @@ export default function ShotDetailScreen() {
   // 错误状态
   if (error) {
     return (
-      <Box flex={1} bg="$backgroundLight0" justifyContent="center" alignItems="center" p="$4">
-        <Text color="$error500" mb="$4">加载分镜失败</Text>
+      <Box
+        flex={1}
+        bg={pageBg}
+        justifyContent="center"
+        alignItems="center"
+        p="$4"
+      >
+        <Text color="$error500" _dark={{ color: "$error300" }} mb="$4">加载分镜失败</Text>
         <Button onPress={() => refetch()}>
           <ButtonText>重试</ButtonText>
         </Button>
@@ -220,7 +235,7 @@ export default function ShotDetailScreen() {
   }
 
   return (
-    <Box flex={1} bg="$backgroundLight0">
+    <Box flex={1} bg={pageBg}>
       <ScrollView
         contentContainerStyle={{
           paddingTop: (insets.top || 0) + 12,
@@ -253,6 +268,7 @@ export default function ShotDetailScreen() {
             borderWidth={1}
             borderColor="$borderLight200"
             height={220}
+            _dark={{ bg: "$backgroundDark900", borderColor: "$borderDark700" }}
           >
             <Image
               source={{ uri: imageUrl }}
@@ -303,7 +319,7 @@ export default function ShotDetailScreen() {
           </HStack>
 
           {regenerateOperationId && !regenerateOperationQuery.isComplete && (
-            <Text size="xs" color="$textLight400" textAlign="center">
+            <Text size="xs" color="$textLight400" _dark={{ color: "$textDark300" }} textAlign="center">
               每 5 秒自动刷新状态
             </Text>
           )}
@@ -319,7 +335,7 @@ export default function ShotDetailScreen() {
                   onChangeText={setPrompt}
                 />
               </Textarea>
-              <Text size="xs" color="$textLight400">
+              <Text size="xs" color="$textLight400" _dark={{ color: "$textDark300" }}>
                 调整提示词以重新生成图像。
               </Text>
             </VStack>

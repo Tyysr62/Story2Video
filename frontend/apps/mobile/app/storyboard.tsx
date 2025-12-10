@@ -30,10 +30,16 @@ import {
   extractOperationId,
   ShotStatus,
 } from "@story2video/core";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 
 export default function StoryboardScreen() {
   const { storyId = "" } = useLocalSearchParams<{ storyId?: string }>();
   const toast = useToast();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === "dark";
+  const pageBg = isDark ? "$backgroundDark950" : "$backgroundLight0";
+  const cardBg = isDark ? "$backgroundDark900" : "$white";
+  const cardBorder = isDark ? "$borderDark700" : "$borderLight200";
 
   // 编译视频操作 ID
   const [compileOperationId, setCompileOperationId] = useState<string | null>(null);
@@ -153,7 +159,12 @@ export default function StoryboardScreen() {
   // 加载中状态
   if (isLoading) {
     return (
-      <Box flex={1} bg="$backgroundLight0" justifyContent="center" alignItems="center">
+      <Box
+        flex={1}
+        bg={pageBg}
+        justifyContent="center"
+        alignItems="center"
+      >
         <Spinner size="large" />
         <Text mt="$4">正在加载分镜...</Text>
       </Box>
@@ -163,8 +174,14 @@ export default function StoryboardScreen() {
   // 错误状态
   if (error) {
     return (
-      <Box flex={1} bg="$backgroundLight0" justifyContent="center" alignItems="center" p="$4">
-        <Text color="$error500" mb="$4">加载分镜失败</Text>
+      <Box
+        flex={1}
+        bg={pageBg}
+        justifyContent="center"
+        alignItems="center"
+        p="$4"
+      >
+        <Text color="$error500" _dark={{ color: "$error300" }} mb="$4">加载分镜失败</Text>
         <Button onPress={() => refetch()}>
           <ButtonText>重试</ButtonText>
         </Button>
@@ -173,17 +190,22 @@ export default function StoryboardScreen() {
   }
 
   return (
-    <Box flex={1} bg="$backgroundLight0">
+    <Box flex={1} bg={pageBg}>
       <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
         <VStack flex={1} space="md" p="$4">
           {/* Header with back button */}
           <HStack alignItems="center" space="md">
             <Pressable onPress={() => router.back()}>
-              <Icon as={ArrowLeftIcon} size="xl" color="$textLight800" />
+              <Icon
+                as={ArrowLeftIcon}
+                size="xl"
+                color="$textLight800"
+                _dark={{ color: "$textDark100" }}
+              />
             </Pressable>
             <VStack flex={1}>
               <Heading size="xl">分镜编辑</Heading>
-              <Text color="$textLight500" size="sm">
+              <Text color="$textLight500" _dark={{ color: "$textDark300" }} size="sm">
                 上下滑动查看分镜
               </Text>
             </VStack>
@@ -192,7 +214,9 @@ export default function StoryboardScreen() {
           <Box flex={1}>
             {shots.length === 0 ? (
               <Box alignItems="center" py="$8">
-                <Text color="$textLight400">暂无分镜</Text>
+                <Text color="$textLight400" _dark={{ color: "$textDark300" }}>
+                  暂无分镜
+                </Text>
               </Box>
             ) : (
               <ScrollView
@@ -208,9 +232,9 @@ export default function StoryboardScreen() {
                       onPress={() => handleDetailClick(shot.id)}
                     >
                       <HStack
-                        bg="$white"
+                        bg={cardBg}
                         borderRadius="$lg"
-                        borderColor="$borderLight200"
+                        borderColor={cardBorder}
                         borderWidth={1}
                         overflow="hidden"
                         alignItems="center"
@@ -226,7 +250,7 @@ export default function StoryboardScreen() {
                           <Heading size="sm" isTruncated>
                             分镜 {shot.sequence}
                           </Heading>
-                          <Text size="xs" color="$textLight500" numberOfLines={2}>
+                          <Text size="xs" color="$textLight500" _dark={{ color: "$textDark300" }} numberOfLines={2}>
                             {shot.details || "未命名"}
                           </Text>
                           <Badge
@@ -240,7 +264,13 @@ export default function StoryboardScreen() {
                           </Badge>
                         </VStack>
                         <Box pr="$3">
-                          <Icon as={ArrowLeftIcon} size="md" color="$textLight400" style={{ transform: [{ rotate: '180deg' }] }} />
+                          <Icon
+                            as={ArrowLeftIcon}
+                            size="md"
+                            color="$textLight400"
+                            _dark={{ color: "$textDark300" }}
+                            style={{ transform: [{ rotate: '180deg' }] }}
+                          />
                         </Box>
                       </HStack>
                     </Pressable>
@@ -263,7 +293,13 @@ export default function StoryboardScreen() {
               </ButtonText>
             </Button>
             {compileOperationId && !compileOperationQuery.isComplete && (
-              <Text size="xs" color="$textLight400" mt="$2" textAlign="center">
+              <Text
+                size="xs"
+                color="$textLight400"
+                _dark={{ color: "$textDark300" }}
+                mt="$2"
+                textAlign="center"
+              >
                 每 5 秒自动刷新状态
               </Text>
             )}

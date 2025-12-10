@@ -34,8 +34,12 @@ import {
   getStoryStylePlaceholder,
   getStoryStyleLabel,
 } from "@story2video/core";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 
 export default function CreateScreen() {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === "dark";
+
   const [storyText, setStoryText] = useState("");
   const [style, setStyle] = useState<StoryStyle>(StoryStyle.MOVIE);
   const toast = useToast();
@@ -106,14 +110,16 @@ export default function CreateScreen() {
 
   const isLoading = createStoryMutation.isPending;
 
+  const pageBg = isDark ? "$backgroundDark950" : "$backgroundLight0";
+
   return (
-    <Box flex={1} bg="$backgroundLight0">
+    <Box flex={1} bg={pageBg}>
       <SafeAreaView style={{ flex: 1 }}>
         <Box flex={1} p="$4">
           <VStack space="xl">
             <VStack space="xs">
               <Heading size="2xl">创建新故事</Heading>
-              <Text size="sm" color="$textLight500">
+              <Text size="sm" color="$textLight500" _dark={{ color: "$textDark300" }}>
                 在下方输入你的故事信息以生成分镜。
               </Text>
             </VStack>
@@ -172,7 +178,13 @@ export default function CreateScreen() {
               </ButtonText>
             </Button>
 
-            <Text size="sm" color="$textLight400" textAlign="center" mt="$2">
+            <Text
+              size="sm"
+              color="$textLight400"
+              _dark={{ color: "$textDark300" }}
+              textAlign="center"
+              mt="$2"
+            >
               提交后可在「任务列表」中查看生成进度
             </Text>
           </VStack>

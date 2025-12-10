@@ -21,8 +21,15 @@ import {
 } from "@story2video/ui";
 import { useStories } from "@story2video/core";
 import type { StoryListItem } from "@story2video/core";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 
 export default function AssetsScreen() {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === "dark";
+  const pageBg = isDark ? "$backgroundDark950" : "$backgroundLight0";
+  const cardBg = isDark ? "$backgroundDark900" : "$white";
+  const cardBorder = isDark ? "$borderDark700" : "$borderLight200";
+
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
@@ -87,10 +94,10 @@ export default function AssetsScreen() {
     return (
       <Pressable onPress={() => handleAssetClick(story)}>
         <Box
-          bg="$white"
+          bg={cardBg}
           borderRadius="$lg"
           borderWidth={1}
-          borderColor="$borderLight200"
+          borderColor={cardBorder}
           overflow="hidden"
           mb="$4"
         >
@@ -110,7 +117,7 @@ export default function AssetsScreen() {
                 <BadgeText>{statusInfo.label}</BadgeText>
               </Badge>
             </HStack>
-            <Text size="xs" color="$textLight400">
+            <Text size="xs" color="$textLight400" _dark={{ color: "$textDark300" }}>
               创建: {formatDate(story.create_time)}
             </Text>
           </VStack>
@@ -120,7 +127,7 @@ export default function AssetsScreen() {
   };
 
   return (
-    <Box flex={1} bg="$backgroundLight0">
+    <Box flex={1} bg={pageBg}>
       <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
         <VStack flex={1} space="md" p="$4">
           <Heading size="2xl">Assets Library</Heading>
@@ -128,11 +135,15 @@ export default function AssetsScreen() {
           {isLoading ? (
             <Box flex={1} justifyContent="center" alignItems="center">
               <Spinner size="large" />
-              <Text mt="$2" color="$textLight500">加载中...</Text>
+              <Text mt="$2" color="$textLight500" _dark={{ color: "$textDark300" }}>
+                加载中...
+              </Text>
             </Box>
           ) : error ? (
             <Box flex={1} justifyContent="center" alignItems="center">
-              <Text color="$error500">加载失败: {error.message}</Text>
+              <Text color="$error500" _dark={{ color: "$error300" }}>
+                加载失败: {error.message}
+              </Text>
             </Box>
           ) : (
             <>
@@ -151,7 +162,9 @@ export default function AssetsScreen() {
 
               {filteredAssets.length === 0 ? (
                 <Box flex={1} justifyContent="center" alignItems="center">
-                  <Text color="$textLight400">No assets found.</Text>
+                  <Text color="$textLight400" _dark={{ color: "$textDark300" }}>
+                    No assets found.
+                  </Text>
                 </Box>
               ) : (
                 <FlatList
