@@ -62,8 +62,12 @@ jobs:
             WORKSPACE_NAME=$(find . -name "*.xcworkspace" | head -n 1)
           fi
 
-          # 从 workspace 列表取第一个 scheme，或用自定义变量覆盖
-          SCHEME_NAME=${XCODE_SCHEME:-$(xcodebuild -list -json -workspace "$WORKSPACE_NAME" | jq -r '.workspace.schemes[0]')}
+          # 从 workspace scheme 列表选择：优先自定义；否则排除 EASClient/Test 类的 scheme，取第一个；再不行取列表第一个
+          if [ -z "$XCODE_SCHEME" ]; then
+            SCHEME_NAME=$(xcodebuild -list -json -workspace "$WORKSPACE_NAME" | jq -r '.workspace.schemes | map(select(. != "EASClient" and test("Tests$|Test$|UITests$") | not)) | .[0] // .[0]')
+          else
+            SCHEME_NAME="$XCODE_SCHEME"
+          fi
 
           echo "Found Workspace: $WORKSPACE_NAME"
           echo "Scheme Name: $SCHEME_NAME"
@@ -89,7 +93,11 @@ jobs:
           if [ -z "$WORKSPACE_NAME" ]; then
             WORKSPACE_NAME=$(find . -name "*.xcworkspace" | head -n 1)
           fi
-          SCHEME_NAME=${XCODE_SCHEME:-$(xcodebuild -list -json -workspace "$WORKSPACE_NAME" | jq -r '.workspace.schemes[0]')}
+          if [ -z "$XCODE_SCHEME" ]; then
+            SCHEME_NAME=$(xcodebuild -list -json -workspace "$WORKSPACE_NAME" | jq -r '.workspace.schemes | map(select(. != "EASClient" and test("Tests$|Test$|UITests$") | not)) | .[0] // .[0]')
+          else
+            SCHEME_NAME="$XCODE_SCHEME"
+          fi
 
           # 定义 .app 的路径
           APP_PATH=$(find "build/$SCHEME_NAME.xcarchive/Products/Applications" -maxdepth 1 -name "*.app" | head -n 1)
