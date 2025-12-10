@@ -20,7 +20,6 @@ except ImportError as e:
     logger.error(f"未安装dashscope SDK: {e}")
     raise
 
-
 def generate_storyboard_shots(story: str) -> List[Dict]:
     """调用 DashScope qwen-plus API 生成分镜结构，返回 shots 列表"""
     system_prompt = (
