@@ -92,7 +92,12 @@ jobs:
           SCHEME_NAME=${XCODE_SCHEME:-$(xcodebuild -list -json -workspace "$WORKSPACE_NAME" | jq -r '.workspace.schemes[0]')}
 
           # 定义 .app 的路径
-          APP_PATH="build/$SCHEME_NAME.xcarchive/Products/Applications/$SCHEME_NAME.app"
+          APP_PATH=$(find "build/$SCHEME_NAME.xcarchive/Products/Applications" -maxdepth 1 -name "*.app" | head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            echo "No .app found under build/$SCHEME_NAME.xcarchive/Products/Applications" >&2
+            ls -R "build/$SCHEME_NAME.xcarchive/Products" || true
+            exit 1
+          fi
 
           # 创建 Payload 文件夹 (IPA 的标准结构)
           mkdir -p Payload
