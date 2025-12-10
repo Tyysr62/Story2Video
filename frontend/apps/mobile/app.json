@@ -10,7 +10,11 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "icon": "../../assets/app-icon/ios/Icon-Store-1024.png"
+      "icon": "../../assets/app-icon/ios/Icon-Store-1024.png",
+      "bundleIdentifier": "com.maredevi.story2video",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
