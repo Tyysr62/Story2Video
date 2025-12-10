@@ -1,0 +1,12 @@
+{
+  "id": "shot_02",
+  "sequence": 2,
+  "subject": "身着金色长裙的女神，眉心有星芒，手持长剑",
+  "detail": "2D Chinese anime style, a divine goddess wearing a golden long gown with a star-shaped mark glowing on her forehead and holding a radiant long sword, first the star mark on her forehead glows with soft stardust light, then the blade of the sword illuminates with shimmering silver-white radiance, finally the light expands to gently bathe the towering peak of Lingjian Mountain below, background features a flowing starry river across the cosmic sky, vertical dolly shot ascending smoothly from ground level up to eye level with the floating goddess, high-resolution 8K cinematic framing, sacred and awe-inspiring atmosphere. Background sound: gentle celestial hum with flowing starriver ambience and resonant sword chime. Voiceover says in Chinese \"天界女神降临，命运的齿轮开始转动。\"",
+  "camera": "垂直升降拍摄",
+  "image_detail": "(2D国漫风格)，灵剑山主峰，女神悬浮空中，脚下是山体，背景是星河，高清晰度，8K画质",
+  "narration": "天界女神降临，命运的齿轮开始转动。",
+  "tone": "神圣",
+  "image_url": "http://bytedance-s2v.oss-cn-beijing.aliyuncs.com/story%2Fu-007%2Fstory-007%2Ft2i%2Fshot_02%2Fkeyframe.png?OSSAccessKeyId=LTAI5tSADQjYfXrA2WuoLbXy&Expires=1765448988&Signature=vKd07qBzAmpepmsUuVzU7H1iMjs%3D",
+  "video_url": "http://bytedance-s2v.oss-cn-beijing.aliyuncs.com/story%2Fu-007%2Fstory-007%2Fi2v%2Fshot_02%2Ffinal.mp4?OSSAccessKeyId=LTAI5tSADQjYfXrA2WuoLbXy&Expires=1765449092&Signature=ySa3OMj8adw9tnRJr9PODvFwRzQ%3D"
+}

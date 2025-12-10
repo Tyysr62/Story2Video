@@ -1,0 +1,12 @@
+{
+  "id": "shot_01",
+  "sequence": 1,
+  "subject": "体型肥硕的短发青年，穿着破旧道袍，眼神迷茫",
+  "detail": "2D Chinese anime style, a stout short-haired youth wearing a tattered Taoist robe, his eyes dazed and unfocused, first the glowing spirit stone in his palm softly illuminates his face, then gradually lights up his robe, finally revealing the silhouettes of distant mountain peaks; misty dawn at the foot of Lingjian Mountain, soft ambient light with subtle volumetric fog, horizontal pan shot; background sound: gentle wind rustling through pine trees and faint resonant hum of the spirit stone. Voiceover says in Chinese \"灵剑山下，一个平凡的少年。\"",
+  "camera": "水平横移拍摄",
+  "image_detail": "(2D国漫风格)，灵剑山山脚，晨雾缭绕，男主角俯身捡起一颗发光的灵石，背景是山峰轮廓，高清晰度，8K画质",
+  "narration": "灵剑山下，一个平凡的少年。",
+  "tone": "神秘",
+  "image_url": "http://bytedance-s2v.oss-cn-beijing.aliyuncs.com/story%2Fu-007%2Fstory-007%2Ft2i%2Fshot_01%2Fkeyframe.png?OSSAccessKeyId=LTAI5tSADQjYfXrA2WuoLbXy&Expires=1765448988&Signature=HwJKxSaq2ZeuLgvYIOfhvYqH5Lg%3D",
+  "video_url": "http://bytedance-s2v.oss-cn-beijing.aliyuncs.com/story%2Fu-007%2Fstory-007%2Fi2v%2Fshot_01%2Ffinal.mp4?OSSAccessKeyId=LTAI5tSADQjYfXrA2WuoLbXy&Expires=1765449092&Signature=%2FA0yk7ia2OPdjAMKTbShOiIbdEE%3D"
+}
