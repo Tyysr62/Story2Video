@@ -21,6 +21,8 @@ import {
 } from "@story2video/ui";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useStory } from "@story2video/core";
+import * as FileSystem from "expo-file-system";
+import * as MediaLibrary from "expo-media-library";
 
 const FALLBACK_THUMBNAIL = "https://placehold.co/600x400/png?text=Video+Preview";
 
@@ -33,14 +35,35 @@ export default function PreviewScreen() {
   // 获取故事数据
   const { data: story, isLoading } = useStory(storyId);
 
+  const videoUrl = story?.video_url;
   const thumbnailUrl = story?.cover_url || FALLBACK_THUMBNAIL;
   const storyName = story?.title || "我的故事视频";
 
   const handleExport = async () => {
     setExporting(true);
     try {
-      // TODO: 实现实际的导出逻辑
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      if (!videoUrl) {
+        throw new Error("暂无可导出的视频");
+      }
+
+      const permission = await MediaLibrary.requestPermissionsAsync();
+      if (!permission.granted) {
+        throw new Error("请允许存储权限以保存到相册");
+      }
+
+      const safeName = `${storyName.replace(/[^a-zA-Z0-9-_]+/g, "_") || "story2video"}.mp4`;
+      const targetPath = `${FileSystem.cacheDirectory}${safeName}`;
+
+      const downloadResult = await FileSystem.downloadAsync(videoUrl, targetPath);
+
+      const asset = await MediaLibrary.createAssetAsync(downloadResult.uri);
+      const albumName = "Story2Video";
+      const existingAlbum = await MediaLibrary.getAlbumAsync(albumName);
+      if (existingAlbum) {
+        await MediaLibrary.addAssetsToAlbumAsync([asset], existingAlbum, false);
+      } else {
+        await MediaLibrary.createAlbumAsync(albumName, asset, false);
+      }
 
       toast.show({
         placement: "top",
@@ -48,7 +71,7 @@ export default function PreviewScreen() {
           return (
             <Toast action="success" variant="accent" nativeID={id}>
               <ToastTitle>成功</ToastTitle>
-              <ToastDescription>视频导出完成！</ToastDescription>
+              <ToastDescription>已保存到相册</ToastDescription>
             </Toast>
           );
         },
@@ -60,7 +83,7 @@ export default function PreviewScreen() {
           return (
             <Toast action="error" variant="accent" nativeID={id}>
               <ToastTitle>错误</ToastTitle>
-              <ToastDescription>导出视频失败。</ToastDescription>
+              <ToastDescription>{err instanceof Error ? err.message : "导出视频失败。"}</ToastDescription>
             </Toast>
           );
         },
@@ -85,7 +108,15 @@ export default function PreviewScreen() {
       <VStack flex={1} space="lg">
         {/* Header with back button */}
         <HStack alignItems="center" space="md" mt="$4">
-          <Pressable onPress={() => router.back()}>
+          <Pressable
+            onPress={() => {
+              if (story?.id) {
+                router.replace({ pathname: "/storyboard", params: { storyId: story.id } });
+              } else {
+                router.back();
+              }
+            }}
+          >
             <Icon as={ArrowLeftIcon} size="xl" color="$textLight800" />
           </Pressable>
           <Heading size="xl">视频预览</Heading>

@@ -40,8 +40,19 @@ const Preview = () => {
   const handleExport = async () => {
     setExporting(true);
     try {
-      // TODO: 实现实际的导出逻辑
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      if (!story?.video_url) {
+        throw new Error("暂无可导出的视频");
+      }
+
+      // Use direct URL download to avoid CORS issues on signed links
+      const link = document.createElement("a");
+      const safeName = `${storyName.replace(/[^a-zA-Z0-9-_]+/g, "_") || "story2video"}.mp4`;
+      link.href = videoUrl;
+      link.download = safeName;
+      link.rel = "noreferrer";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
 
       toast.show({
         placement: "top",
@@ -61,7 +72,7 @@ const Preview = () => {
           return (
             <Toast action="error" variant="accent" nativeID={id}>
               <ToastTitle>错误</ToastTitle>
-              <ToastDescription>导出视频失败。</ToastDescription>
+              <ToastDescription>{err instanceof Error ? err.message : "导出视频失败。"}</ToastDescription>
             </Toast>
           );
         },

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { ScrollView } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, router } from "expo-router";
 import {
   Box,
@@ -51,6 +52,7 @@ export default function ShotDetailScreen() {
 
   // 获取 shot 数据
   const { data: shot, isLoading, error, refetch } = useShot(storyId, id || "");
+  const insets = useSafeAreaInsets();
 
   // 本地表单状态
   const [prompt, setPrompt] = useState("");
@@ -219,7 +221,13 @@ export default function ShotDetailScreen() {
 
   return (
     <Box flex={1} bg="$backgroundLight0">
-      <ScrollView contentContainerStyle={{ padding: 16 }}>
+      <ScrollView
+        contentContainerStyle={{
+          paddingTop: (insets.top || 0) + 12,
+          paddingHorizontal: 16,
+          paddingBottom: 24,
+        }}
+      >
         <VStack space="xl">
           <Box>
             <Heading size="xl">分镜 {shot?.sequence || id}</Heading>
