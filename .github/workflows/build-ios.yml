@@ -50,7 +50,7 @@ jobs:
 
       - name: Expo Prebuild
         working-directory: frontend/apps/mobile
-        run: pnpm exec expo prebuild --platform ios --no-interactive
+        run: pnpm exec expo prebuild --platform ios --non-interactive
         # 这一步会将 Expo 项目生成原生的 ios 目录
 
       - name: Build Unsigned Archive
