@@ -62,9 +62,16 @@ jobs:
             WORKSPACE_NAME=$(find . -name "*.xcworkspace" | head -n 1)
           fi
 
-          # 从 workspace scheme 列表选择：优先自定义；否则排除 EASClient/Test 类的 scheme，取第一个；再不行取列表第一个
+          SCHEMES_JSON=$(xcodebuild -list -json -workspace "$WORKSPACE_NAME")
+          echo "Available schemes:"; echo "$SCHEMES_JSON" | jq -r '.workspace.schemes[]'
+
+          # 从 workspace scheme 列表选择：优先自定义；否则排除 EASClient/Tests，若找不到则直接失败并提示设置 XCODE_SCHEME
           if [ -z "$XCODE_SCHEME" ]; then
-            SCHEME_NAME=$(xcodebuild -list -json -workspace "$WORKSPACE_NAME" | jq -r '.workspace.schemes | map(select(. != "EASClient" and test("Tests$|Test$|UITests$") | not)) | .[0] // .[0]')
+            SCHEME_NAME=$(echo "$SCHEMES_JSON" | jq -r '[.workspace.schemes[] | select((.|test("^EASClient$")|not) and (.|test("Tests$|Test$|UITests$")|not))][0] // empty')
+            if [ -z "$SCHEME_NAME" ]; then
+              echo "No non-EASClient/non-Test scheme found. Please set XCODE_SCHEME explicitly." >&2
+              exit 1
+            fi
           else
             SCHEME_NAME="$XCODE_SCHEME"
           fi
@@ -94,7 +101,12 @@ jobs:
             WORKSPACE_NAME=$(find . -name "*.xcworkspace" | head -n 1)
           fi
           if [ -z "$XCODE_SCHEME" ]; then
-            SCHEME_NAME=$(xcodebuild -list -json -workspace "$WORKSPACE_NAME" | jq -r '.workspace.schemes | map(select(. != "EASClient" and test("Tests$|Test$|UITests$") | not)) | .[0] // .[0]')
+            SCHEMES_JSON=$(xcodebuild -list -json -workspace "$WORKSPACE_NAME")
+            SCHEME_NAME=$(echo "$SCHEMES_JSON" | jq -r '[.workspace.schemes[] | select((.|test("^EASClient$")|not) and (.|test("Tests$|Test$|UITests$")|not))][0] // empty')
+            if [ -z "$SCHEME_NAME" ]; then
+              echo "No non-EASClient/non-Test scheme found. Please set XCODE_SCHEME explicitly." >&2
+              exit 1
+            fi
           else
             SCHEME_NAME="$XCODE_SCHEME"
           fi

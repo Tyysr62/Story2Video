@@ -21,7 +21,8 @@ import {
 } from "@story2video/ui";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useStory } from "@story2video/core";
-import * as FileSystem from "expo-file-system";
+import { Directory, File, Paths } from "expo-file-system";
+import { fetch } from "expo/fetch";
 import * as MediaLibrary from "expo-media-library";
 
 const FALLBACK_THUMBNAIL = "https://placehold.co/600x400/png?text=Video+Preview";
@@ -52,11 +53,15 @@ export default function PreviewScreen() {
       }
 
       const safeName = `${storyName.replace(/[^a-zA-Z0-9-_]+/g, "_") || "story2video"}.mp4`;
-      const targetPath = `${FileSystem.cacheDirectory}${safeName}`;
+      const cacheDir = new Directory(Paths.cache, "story2video");
+      cacheDir.create();
+      const targetFile = new File(cacheDir, safeName);
 
-      const downloadResult = await FileSystem.downloadAsync(videoUrl, targetPath);
+      const response = await fetch(videoUrl);
+      const bytes = await response.bytes();
+      await targetFile.write(bytes);
 
-      const asset = await MediaLibrary.createAssetAsync(downloadResult.uri);
+      const asset = await MediaLibrary.createAssetAsync(targetFile.uri);
       const albumName = "Story2Video";
       const existingAlbum = await MediaLibrary.getAlbumAsync(albumName);
       if (existingAlbum) {
