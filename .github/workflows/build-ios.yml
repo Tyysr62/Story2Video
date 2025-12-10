@@ -53,20 +53,27 @@ jobs:
         run: pnpm exec expo prebuild --platform ios --non-interactive
         # 这一步会将 Expo 项目生成原生的 ios 目录
 
-      - name: Build Unsigned Archive
+      - name: Detect workspace and scheme
         working-directory: frontend/apps/mobile/ios
         run: |
-          # 优先选择顶层 xcworkspace，跳过 project.xcworkspace；允许自定义变量覆盖
+          set -euo pipefail
+
+          # 选择 workspace：优先自定义；否则选择首个非 project.xcworkspace 的 workspace
           WORKSPACE_NAME=${XCODE_WORKSPACE:-$(find . -maxdepth 2 -name "*.xcworkspace" ! -path "*/project.xcworkspace" | head -n 1)}
           if [ -z "$WORKSPACE_NAME" ]; then
             WORKSPACE_NAME=$(find . -name "*.xcworkspace" | head -n 1)
           fi
 
+          if [ -z "$WORKSPACE_NAME" ]; then
+            echo "No .xcworkspace found under ios/. Please set XCODE_WORKSPACE." >&2
+            exit 1
+          fi
+
           SCHEMES_JSON=$(xcodebuild -list -json -workspace "$WORKSPACE_NAME")
           echo "Available schemes:"; echo "$SCHEMES_JSON" | jq -r '.workspace.schemes[]'
 
-          # 从 workspace scheme 列表选择：优先自定义；否则排除 EASClient/Tests，若找不到则直接失败并提示设置 XCODE_SCHEME
-          if [ -z "$XCODE_SCHEME" ]; then
+          # 选择 scheme：优先自定义；否则排除 EASClient 和测试相关 scheme
+          if [ -z "${XCODE_SCHEME:-}" ]; then
             SCHEME_NAME=$(echo "$SCHEMES_JSON" | jq -r '[.workspace.schemes[] | select((.|test("^EASClient$")|not) and (.|test("Tests$|Test$|UITests$")|not))][0] // empty')
             if [ -z "$SCHEME_NAME" ]; then
               echo "No non-EASClient/non-Test scheme found. Please set XCODE_SCHEME explicitly." >&2
@@ -76,8 +83,22 @@ jobs:
             SCHEME_NAME="$XCODE_SCHEME"
           fi
 
-          echo "Found Workspace: $WORKSPACE_NAME"
-          echo "Scheme Name: $SCHEME_NAME"
+          echo "WORKSPACE_NAME=$WORKSPACE_NAME" >> "$GITHUB_ENV"
+          echo "SCHEME_NAME=$SCHEME_NAME" >> "$GITHUB_ENV"
+
+          echo "Selected Workspace: $WORKSPACE_NAME"
+          echo "Selected Scheme: $SCHEME_NAME"
+
+      - name: Build Unsigned Archive
+        working-directory: frontend/apps/mobile/ios
+        run: |
+          set -euo pipefail
+
+          echo "Using Workspace: ${WORKSPACE_NAME:-}" "| Scheme: ${SCHEME_NAME:-}"
+          if [ -z "${WORKSPACE_NAME:-}" ] || [ -z "${SCHEME_NAME:-}" ]; then
+            echo "Workspace/Scheme not detected. Ensure the previous step ran or set XCODE_WORKSPACE/XCODE_SCHEME." >&2
+            exit 1
+          fi
 
           # 执行 xcodebuild
           # CODE_SIGNING_ALLOWED=NO: 关键参数，禁止签名
@@ -92,27 +113,31 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             AD_HOC_CODE_SIGNING_ALLOWED=NO
 
+          if [ ! -d "build/$SCHEME_NAME.xcarchive/Products/Applications" ]; then
+            echo "Archive not found at build/$SCHEME_NAME.xcarchive/Products/Applications" >&2
+            echo "Contents of build/:"; ls -R build || true
+            exit 1
+          fi
+
       - name: Export IPA
         working-directory: frontend/apps/mobile/ios
         run: |
-          # 与构建步骤保持一致的 workspace / scheme 选择
-          WORKSPACE_NAME=${XCODE_WORKSPACE:-$(find . -maxdepth 2 -name "*.xcworkspace" ! -path "*/project.xcworkspace" | head -n 1)}
-          if [ -z "$WORKSPACE_NAME" ]; then
-            WORKSPACE_NAME=$(find . -name "*.xcworkspace" | head -n 1)
-          fi
-          if [ -z "$XCODE_SCHEME" ]; then
-            SCHEMES_JSON=$(xcodebuild -list -json -workspace "$WORKSPACE_NAME")
-            SCHEME_NAME=$(echo "$SCHEMES_JSON" | jq -r '[.workspace.schemes[] | select((.|test("^EASClient$")|not) and (.|test("Tests$|Test$|UITests$")|not))][0] // empty')
-            if [ -z "$SCHEME_NAME" ]; then
-              echo "No non-EASClient/non-Test scheme found. Please set XCODE_SCHEME explicitly." >&2
-              exit 1
-            fi
-          else
-            SCHEME_NAME="$XCODE_SCHEME"
+          set -euo pipefail
+
+          if [ -z "${WORKSPACE_NAME:-}" ] || [ -z "${SCHEME_NAME:-}" ]; then
+            echo "Workspace/Scheme not detected. Ensure the detect step ran or set XCODE_WORKSPACE/XCODE_SCHEME." >&2
+            exit 1
           fi
 
           # 定义 .app 的路径
-          APP_PATH=$(find "build/$SCHEME_NAME.xcarchive/Products/Applications" -maxdepth 1 -name "*.app" | head -n 1)
+          ARCHIVE_ROOT="build/$SCHEME_NAME.xcarchive/Products/Applications"
+          if [ ! -d "$ARCHIVE_ROOT" ]; then
+            echo "No archive directory at $ARCHIVE_ROOT" >&2
+            echo "Contents of build/:"; ls -R build || true
+            exit 1
+          fi
+
+          APP_PATH=$(find "$ARCHIVE_ROOT" -maxdepth 1 -name "*.app" | head -n 1)
           if [ -z "$APP_PATH" ]; then
             echo "No .app found under build/$SCHEME_NAME.xcarchive/Products/Applications" >&2
             ls -R "build/$SCHEME_NAME.xcarchive/Products" || true
