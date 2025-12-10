@@ -26,7 +26,6 @@ from app_api.storage.repository import (
     upsert_shot, update_story_video_url, get_story_shots
 )
 
-
 router = APIRouter(prefix="/api/v1")
 
 
