@@ -124,4 +124,3 @@ def generate_tts_audio(text: str, user_id: str, story_id: str, shot_id: str) -> 
         import traceback
         logger.error(f"详细错误: {traceback.format_exc()}")
         return ""
-
