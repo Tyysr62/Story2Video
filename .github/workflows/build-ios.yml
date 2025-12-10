@@ -12,6 +12,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+          run_install: false
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -38,9 +44,9 @@ jobs:
         run: pnpm install -w --frozen-lockfile
 
       - name: Set build env
-        run: echo "EXPO_PUBLIC_API_BASE_URL=${EXPO_PUBLIC_API_BASE_URL}" >> $GITHUB_ENV
         env:
-          EXPO_PUBLIC_API_BASE_URL: ${{ secrets.EXPO_PUBLIC_API_BASE_URL || 'https://api.maredevi.fun' }}
+          EXPO_PUBLIC_API_BASE_URL: ${{ secrets.EXPO_PUBLIC_API_BASE_URL }}
+        run: echo "EXPO_PUBLIC_API_BASE_URL=${EXPO_PUBLIC_API_BASE_URL:-https://api.maredevi.fun}" >> $GITHUB_ENV
 
       - name: Expo Prebuild
         working-directory: frontend/apps/mobile
