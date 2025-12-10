@@ -10,28 +10,44 @@ def generate_storyboard_shots(story: str) -> List[Dict]:
     """调用本地 Ollama 生成分镜结构，返回 shots 列表"""
 
     system_prompt = (
-        "角色设定：你是一位拥有无限想象力的AI视频导演和金牌编剧。你的首要任务是在任何情况下，都必须根据用户给出的任意概念或一句话，独立脑补并生成一个完整、结构化、严格格式化的 JSON 分镜脚本。\n\n"
+        "角色设定：你是一位拥有无限想象力的AI视频导演和金牌编剧。你的首要任务是在任何情况下，都必须根据用户给出的任意概念或一句话，独立脑补并生成一个完整、结构化、严格格式化的 JSON 分镜脚本。\n"
 
         "### 必须完全遵守以下规则：\n"
         "1. 无论用户输入什么内容，你**绝不能**提出问题、索要更多信息、要求补充、拒绝生成，或返回与分镜无关的话。\n"
         "2. 如果用户提供的信息不足，你必须自行想象并补全所有细节，包括人物外貌、场景、画面节奏、光线、情绪、动作等。\n"
         "3. 在任何情况下都必须输出一个有效 JSON，且分镜数量必须是 6～10 条之间。\n"
         "4. 如果某项要求缺失，你必须自动脑补，而不是停下来询问。\n"
-
         "==============================="
-        "【JSON 输出强制格式】"
-        "只返回一个包含 'shots' 根节点的 JSON 对象，不允许出现对话、不允许出现说明文本、不允许出现 Markdown。\n"
-        "结构如下：\n"
+        "### 关键规则 1：视觉风格的强制升级（Style Injection）\n"
+        "用户给出的风格词通常很短（如“国漫”）。你必须在每个分镜的 `detail` 字段开头，**强制**加上一套具体的、高权重的视觉描述词。\n"
+        "举例：\n"
+        "- 如果用户说“国漫风格”，你可以扩写为：“(3D玄幻国漫风格)，UE5引擎渲染，极致的皮肤纹理，如梦似幻的东方美学，电影级布光”\n"
+        "- 如果用户说“赛博朋克”，你可以扩写为：“(赛博朋克风格)，霓虹灯效，雨夜，高对比度，机械义肢细节，未来都市”\n"
+        "**注意：所有分镜必须共享这一套视觉描述，以确保视频画风绝对统一。**\n\n"
+
+        "### 关键规则 2：动态描述\n"
+        "在 `detail` 字段中，描述动作必须严格遵循 **“时序逻辑”**：\n"
+        "- 必须使用句式：“先 [动作A]，然后 [动作B]，最后 [动作C]”。\n"
+        "- 动作必须是物理可见的（如“他手里的薯片掉落在地”），不能是抽象心理（如“他感到失落”）。\n\n"
+
+        "### 关键规则 3：JSON 输出格式\n"
+        "只返回 JSON，不要任何 Markdown，不要任何废话。格式如下：\n"
+
+        "### 关键规则 4：J静态描述格式\n"
+        "在'image_detail' **必须**描写画面定格那一瞬间的状态。：\n"
+        "  - **禁止**出现“然后”、“接着”、“最后”等时间推移词。\n"
+        "  - 格式：[风格扩写] + [画面主体静态描述] + [环境背景] + [光照] + [构图/画质标签]\n\n"
         "{\n"
         "  \"shots\": [\n"
         "    {\n"
-        "      \"sequence\": 1, (整数，从1开始)\n"
-        "      \"subject\": \"(字符串) 画面主体角色\",\n"
-        "      \"detail\": \"(字符串) 包含风格、光线、时序动态、方位的完整中文画面描述\",\n"
-        "      \"narration\": \"(字符串) 不超过30字的中文旁白\",\n"
-        "      \"camera\": \"(字符串) 运镜关键词\",\n"
-        "      \"tone\": \"(字符串) 语音的情感基调 (如：平静、紧张、兴奋)\",\n"
-        "      \"sound\": \"(字符串) 中文背景音效描述\"\n"
+        "      \"sequence\": 1,\n"
+        "      \"subject\": \"(字符串) 画面主体的具体外观（如：体型肥硕的短发青年，穿着破旧道袍），只要出现在detail或者image_detail中，就必须包含\",\n"
+        "      \"image_detail\": \"(字符串) [T2I专用] 风格扩写 + 静态画面描述 + 构图, masterpiece, high quality,必填\",\n"
+        "      \"detail\": \"(字符串) [视觉风格扩写] + [光影] + [先...然后...最后...] + [环境细节],必填\",\n"
+        "      \"narration\": \"(字符串) 对应情节的中文旁白，≤30字\",\n"
+        "      \"camera\": \"(字符串) 必须从以下词库中选一个：垂直升降拍摄、水平横移拍摄、镜头推进、镜头后退、全方位环绕、固定机位\",\n"
+        "      \"tone\": \"(字符串) 情感基调\",\n"
+        "      \"sound\": \"(字符串) 仅包含环境音和动作音效\"\n"
         "    }\n"
         "  ]\n"
         "}"
@@ -39,9 +55,7 @@ def generate_storyboard_shots(story: str) -> List[Dict]:
         "===============================\n"
         "【风格继承（强制执行）】\n"
         "- 如果用户输入中包含 style 或任何风格描述，你必须无条件使用用户指定的风格，禁止替换成示例中的写实风格或其他风格。\n"
-        "- detail 字段中的视觉风格必须与用户指定风格完全一致。\n"
         "- 如果用户未提供风格，你才可自行选择视觉风格。\n"
-
         "===============================\n"
         "【字段填充规则】\n"
         "1. detail（必须包含以下内容）：\n"
@@ -110,10 +124,12 @@ def generate_storyboard_shots(story: str) -> List[Dict]:
                         'id': f"shot_{seq:02d}",
                         'sequence': seq,
                         'subject': shot.get('subject'),
+                        'image_detail': shot.get('image_detail'),
                         'detail': shot.get('detail'),
                         'camera': shot.get('camera'),
                         'narration': narr,
                         'tone': shot.get('tone'),
+                        'sound': shot.get('sound'),
                     })
                 count = len(valid_shots)
                 if count < 5 or count > 10:
@@ -189,55 +205,83 @@ def call_dashscope_llm(messages: List[Dict[str, str]]) -> str:
 def optimize_i2v_response(i2v_json: Dict[str, Any]) -> Dict[str, Any]:
     """优化图生视频的 JSON 响应，返回优化后的 JSON"""
     optimized_json = json.loads(json.dumps(i2v_json))  # 深拷贝
-    
     for shot in optimized_json.get("shots", []):
         # 1. 将 detail 属性翻译为英文
         detail = shot.get("detail", "")
         if detail:
-            logger.info(f"优化 detail: {detail[:50]}...")
+            logger.debug(f"优化 detail: {detail[:50]}...")
             try:
                 messages = [
                     {
                         "role": "system",
-                        "content": "你是一个专业的翻译助手，擅长将中文视频分镜描述翻译成英文。你的任务是生成准确、生动、符合视频生成要求的英文提示词，确保翻译质量高、细节丰富、适合AI视频生成模型使用。"
+                        "content": """You are an expert Prompt Engineer for HunyuanVideo 1.5, specialized in converting structured JSON data into cinematic Image-to-Video prompts.
+
+                Your task is to translate the user's Chinese JSON input into a SINGLE, high-quality English prompt block.
+
+                ### INPUT DATA STRUCTURE
+                - "subject": The main character or object.
+                - "detail": Description of style, lighting, sequential actions, and spatial details.
+                - "narration": Chinese voiceover text.
+                - "camera": Camera movement keywords.
+                - "tone": Emotional tone.
+                - "sound": Background sound description.
+
+                ### GENERATION RULES (Strictly Follow)
+                1.  **Structure**: Assemble the prompt in this specific order based on the HunyuanVideo Core Formula:
+                    `[Style/Atmosphere] + [Subject Description] + [Sequential Motion/Dynamics] + [Scene/Lighting] + [Camera Movement] + [Sound/Voiceover]`
+
+                2.  **Translation & Refinement**:
+                    - Translate all fields to English (EXCEPT the specific content inside "narration").
+                    - **Motion**: Convert the `detail` field into a time-sequenced description using conjunctions like "First..., then..., next..., finally..." to ensure fluid video generation.
+                    - **Camera**: Map Chinese camera terms to cinematic English terms (e.g., "推" -> "Dolly in", "摇" -> "Pan", "跟随" -> "Camera follows", "旋转" -> "Orbit").
+                    - **Details**: Convert abstract emotions in `tone` into visible action details (e.g., "anxious" -> "frowning and pacing").
+
+                3.  **Voiceover Constraint**:
+                    - You must append the audio instruction at the very end of the prompt.
+                    - Format: **Background sound: [English sound description]. Voiceover says in Chinese "[Original Chinese Narration Content]"**.
+
+                4.  **Output Format**:
+                    - Return ONLY the final prompt string. Do not use markdown blocks. Do not add explanations.
+                """
                     },
                     {
                         "role": "user",
-                        "content": f"请将以下中文视频分镜描述翻译成英文，严格遵循以下要求：\n\n### 翻译要求：\n1. 准确传达原始中文描述的所有细节，包括场景、角色、动作、光线、氛围等\n2. 语言流畅自然，符合英文视频提示词的表达习惯\n3. 使用生动、具体的词汇，适合AI视频生成模型理解\n4. 保持原始描述的结构和逻辑关系\n5. 翻译结果长度适中，不超过300个字符\n\n### 示例：\n中文：'一位穿着红色连衣裙的女孩在海边奔跑，阳光洒在她身上，海浪拍打着沙滩。'\n英文：'A girl in a red dress running on the beach, with sunlight shining on her and waves crashing against the shore.'\n\n### 待翻译内容：\n{detail}\n\n请只输出翻译后的英文内容，不要添加任何解释或说明。"
-                    }  
+                        "content": f"""请将以下数据转化为一段单纯的视频生成提示词：
+                        {shot}"""
+                    }
                 ]
-                english_detail = call_dashscope_llm(messages)
-                shot["detail"] = english_detail
-                logger.info(f"翻译后: {english_detail[:50]}...")
+                optimized_detail = call_dashscope_llm(messages)
+                shot["detail"] = optimized_detail
+                logger.info(f"翻译后: {optimized_detail[:50]}...")
             except Exception as e:
                 logger.error(f"翻译 detail 失败: {e}")
         
-        # 2. 优化 narration 属性为指定格式
-        narration = shot.get("narration", "")
-        if narration:
-            logger.info(f"优化 narration: {narration}")
-            try:
-                messages = [
-                    {
-                        "role": "system",
-                        "content": """你是一个专业的AI视频生成提示词专家。你的唯一任务是将输入的JSON分镜转化为符合I2V模型的高质量Prompt。"
-                        **转化规则：**
-                        1. **画面 (Visuals)**: 用英文扩写 `subject` 和 `detail`。加入光影、质感描述，确保画面描述丰富、生动。开头固定用 "The video shows..."。
-                        2. **运镜 (Camera)**: 将 `camera` 融入画面描述。
-                        3. **旁白 (Narration)**: 这是画外音。格式必须是：A voiceover says in Chinese: "保留中文内容"。
-                        4. **音效 (Sound)**: 翻译为英文描述，放在最后。
-                        5. **基调 (Tone)**: 确保形容词符合 `tone` 的情感（如紧张、悲伤）。
-                        """
-                    },
-                    {
-                        "role": "user",
-                        "content": f"请处理这个分镜数据：{json.dumps(shot, ensure_ascii=False)}\n\n"
-                    } 
-                ]
-                optimized_narr = call_dashscope_llm(messages)
-                shot["narration"] = optimized_narr
-                logger.info(f"优化后: {optimized_narr}")
-            except Exception as e:
-                logger.error(f"优化 narration 失败: {e}")
+        # # 2. 优化 narration 属性为指定格式
+        # narration = shot.get("narration", "")
+        # if narration:
+        #     logger.info(f"优化 narration: {narration}")
+        #     try:
+        #         messages = [
+        #             {
+        #                 "role": "system",
+        #                 "content": """你是一个专业的AI视频生成提示词专家。你的唯一任务是将输入的JSON分镜转化为符合I2V模型的高质量Prompt。"
+        #                 **转化规则：**
+        #                 1. **画面 (Visuals)**: 用英文扩写 `subject` 和 `detail`。加入光影、质感描述，确保画面描述丰富、生动。开头固定用 "The video shows..."。
+        #                 2. **运镜 (Camera)**: 将 `camera` 融入画面描述。
+        #                 3. **旁白 (Narration)**: 这是画外音。格式必须是：A voiceover says in Chinese: "保留中文内容"。
+        #                 4. **音效 (Sound)**: 翻译为英文描述，放在最后。
+        #                 5. **基调 (Tone)**: 确保形容词符合 `tone` 的情感（如紧张、悲伤）。
+        #                 """
+        #             },
+        #             {
+        #                 "role": "user",
+        #                 "content": f"请处理这个分镜数据：{json.dumps(shot, ensure_ascii=False)}\n\n"
+        #             } 
+        #         ]
+        #         optimized_narr = call_dashscope_llm(messages)
+        #         shot["narration"] = optimized_narr
+        #          logger.info(f"优化后: {optimized_narr}")
+        #     except Exception as e:
+        #         logger.error(f"优化 narration 失败: {e}")
     
     return optimized_json

@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"go.uber.org/zap"
@@ -27,9 +26,36 @@ func (d *jobDispatcher) Dispatch(job StoryJobMessage) error {
 	defer cancel()
 	if err := d.producer.Publish(ctx, job); err != nil {
 		if d.logger != nil {
-			d.logger.Error("publish kafka", zap.Error(err), zap.String("operation_id", job.OperationID))
+			d.logger.Error(string(LogMsgKafkaPublishFailed), d.kafkaLogFields(job, err)...)
 		}
-		return fmt.Errorf("publish kafka: %w", err)
+		if svcErr, ok := AsServiceError(err); ok {
+			return svcErr
+		}
+		return WrapServiceError(ErrCodeJobEnqueueFailed, "Kafka 发送失败", err)
 	}
 	return nil
+}
+
+func (d *jobDispatcher) kafkaLogFields(job StoryJobMessage, err error) []zap.Field {
+	fields := []zap.Field{
+		zap.String(string(LogKeyOperationID), job.OperationID),
+	}
+	if job.StoryID != "" {
+		fields = append(fields, zap.String(string(LogKeyStoryID), job.StoryID))
+	}
+	if job.Payload.ShotID != "" {
+		fields = append(fields, zap.String(string(LogKeyShotID), job.Payload.ShotID))
+	}
+	if job.UserID != "" {
+		fields = append(fields, zap.String(string(LogKeyUserID), job.UserID))
+	}
+	fields = append(fields, zap.Error(err))
+	return fields
+}
+
+func (d *jobDispatcher) Close() error {
+	if d == nil || d.producer == nil {
+		return nil
+	}
+	return d.producer.Close()
 }

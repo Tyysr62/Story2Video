@@ -19,6 +19,7 @@ class Shot(BaseModel):
     subject: Optional[str] = None
     detail: Optional[str] = None
     camera: Optional[str] = None
+    image_detail: Optional[str] = None
     narration: Optional[str] = None
     tone: Optional[str] = None
     image_url: Optional[str] = None
@@ -58,6 +59,8 @@ class RenderVideoRequest(BaseModel):
     operation_id: str
     story_id: str
     user_id: str
+    multi: int = Field(2, description="视频增强多帧参数，默认 2")
+    scale: int = Field(2, description="视频增强超分倍数，默认 2")
 
 class RenderVideoResponse(BaseModel):
     operation: OperationStatus

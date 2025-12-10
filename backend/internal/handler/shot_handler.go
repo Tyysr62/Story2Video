@@ -31,7 +31,7 @@ func (h *ShotHandler) List(c *gin.Context) {
 	}
 	shots, err := h.service.List(c.Request.Context(), userID, storyID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondServiceError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"shots": shots})
@@ -49,7 +49,7 @@ func (h *ShotHandler) Get(c *gin.Context) {
 	}
 	shot, err := h.service.Get(c.Request.Context(), userID, storyID, shotID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondServiceError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, shot)
@@ -117,7 +117,7 @@ func (h *ShotHandler) Update(c *gin.Context) {
 
 	shot, err := h.service.Update(c.Request.Context(), userID, storyID, shotID, fields)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondServiceError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, shot)
@@ -151,7 +151,7 @@ func (h *ShotHandler) Regenerate(c *gin.Context) {
 
 	op, err := h.service.UpdateScript(c.Request.Context(), userID, storyID, shotID, req.Details)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondServiceError(c, err)
 		return
 	}
 	c.JSON(http.StatusAccepted, gin.H{"operation_name": fmt.Sprintf("operations/%s", op.ID), "state": op.Status})
@@ -171,7 +171,7 @@ func (h *ShotHandler) Render(c *gin.Context) {
 
 	op, err := h.service.RenderStory(c.Request.Context(), userID, storyID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondServiceError(c, err)
 		return
 	}
 	c.JSON(http.StatusAccepted, gin.H{"operation_name": fmt.Sprintf("operations/%s", op.ID), "state": op.Status})

@@ -3,9 +3,12 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from fastapi import APIRouter, BackgroundTasks
+import requests
+from collections import deque
+from threading import Lock
 
 from app.core.logging import logger
-from app.core.config import OUTPUT_DIR, TEST_FAST_RETURN, LOCAL_INFERENCE, COMFY_HOSTS_LIST, PIXVERSE_MAX_CONCURRENCY
+from app.core.config import OUTPUT_DIR, TEST_FAST_RETURN, LOCAL_INFERENCE, COMFY_HOSTS_LIST, PIXVERSE_MAX_CONCURRENCY, ENHACE_LIST
 from app.models.schemas import (
     CreateStoryboardRequest, CreateStoryboardResponse,
     RegenerateShotRequest, RegenerateShotResponse,
@@ -62,12 +65,18 @@ COMFY_WORKFLOW_I2V = {
 router = APIRouter(prefix="/api/v1")
 
 
+_render_lock: Lock = Lock()
+_current_processing: bool = False
+_render_queue = deque()
+_MAX_QUEUE_LEN: int = 100
+
+
 @router.post("/storyboard/create", response_model=CreateStoryboardResponse)
 def create_storyboard(req: CreateStoryboardRequest, background_tasks: BackgroundTasks):
     logger.info(f"CreateStoryboardTask 开始: op={req.operation_id}, story={req.story_id}")
     upsert_story(req.user_id, req.story_id, req.display_name, req.style, req.script_content)
     try:
-        shots_raw = generate_storyboard_shots("style:" + req.style + ":" + req.script_content)
+        shots_raw = generate_storyboard_shots("style:" + req.style + "风格 ;" + req.script_content)
     except Exception as e:
         update_operation(req.user_id, req.operation_id, "Failed", detail=str(e))
         from fastapi import HTTPException
@@ -79,6 +88,7 @@ def create_storyboard(req: CreateStoryboardRequest, background_tasks: Background
             sequence=s.get('sequence', i+1),
             subject=s.get('subject'),
             detail=s.get('detail'),
+            image_detail=s.get('image_detail'),
             camera=s.get('camera'),
             narration=s.get('narration'),
             tone=s.get('tone'),
@@ -99,7 +109,13 @@ def create_storyboard(req: CreateStoryboardRequest, background_tasks: Background
         futures = []
         for shot in processed_shots:
             keyframe = t2i_dir / f"shot_{shot.sequence:02d}_keyframe.png"
-            text_prompt = shot.detail or ""
+            image_detail = shot.image_detail or ""
+            if shot.subject:
+                subject = f"画面的主体是{shot.subject}:"
+            else:
+                subject = ""
+            text_prompt = f"{subject} {image_detail}"
+            # text_prompt = shot.detail or ""
             futures.append(ex.submit(run_t2i, text_prompt, keyframe, COMFY_WORKFLOW_T2I))
         for _ in as_completed(futures):
             pass
@@ -108,9 +124,12 @@ def create_storyboard(req: CreateStoryboardRequest, background_tasks: Background
     for shot in processed_shots:
         keyframe = t2i_dir / f"shot_{shot.sequence:02d}_keyframe.png"
         if keyframe.exists():
-            object_key = f"users/{req.user_id}/stories/{req.story_id}/t2i/shot_{shot.sequence:02d}/keyframe.png"
+            object_key = f"story/{req.user_id}/{req.story_id}/t2i/shot_{shot.sequence:02d}/keyframe.png"
             url = upload_to_oss(object_key, keyframe)
             shot.image_url = url or f"/static/{req.user_id}/{req.story_id}/T2I/{keyframe.name}"
+            logger.info(f"Shot {shot.sequence} 图片URL: {shot.image_url}")
+        else:
+            logger.warning(f"Shot {shot.sequence} 关键帧文件不存在: {keyframe}")
 
     # 保存 shots 初始结构到“数据库”
     save_story_shots(req.user_id, req.story_id, [shot.dict() for shot in processed_shots])
@@ -158,7 +177,7 @@ def regenerate_shot(req: RegenerateShotRequest, background_tasks: BackgroundTask
         text_prompt = f"参考上一帧风格，保持镜头语义一致：{existed.get('subject','')}。{existed.get('narration','')}"
 
     run_t2i(text_prompt, keyframe, COMFY_WORKFLOW_T2I)
-    k_obj = f"users/{req.user_id}/stories/{req.story_id}/t2i/{req.shot_id}/keyframe.png"
+    k_obj = f"story/{req.user_id}/{req.story_id}/t2i/{req.shot_id}/keyframe.png"
     k_url = upload_to_oss(k_obj, keyframe)
 
     # 构造返回的 Shot，保留原有字段，仅更新 detail 与 image_url
@@ -199,7 +218,20 @@ def regenerate_shot(req: RegenerateShotRequest, background_tasks: BackgroundTask
 
 @router.post("/video/render", response_model=RenderVideoResponse)
 def render_video(req: RenderVideoRequest, background_tasks: BackgroundTasks):
+    global _current_processing
     logger.info(f"RenderVideo 开始: op={req.operation_id}, story={req.story_id}")
+    with _render_lock:
+        if _current_processing:
+            q_len = len(_render_queue)
+            if q_len >= _MAX_QUEUE_LEN:
+                from fastapi import HTTPException
+                raise HTTPException(status_code=503, detail=f"服务器忙碌当前排队人数大于{_MAX_QUEUE_LEN}，请稍后再试")
+            _render_queue.append(req.operation_id)
+            msg = f"排队中，前面还有{q_len}位正在排队"
+            update_operation(req.user_id, req.operation_id, "Queued", detail=msg)
+            return RenderVideoResponse(operation=OperationStatus(operation_id=req.operation_id, status="Queued", detail=msg), video_url="")
+        else:
+            _current_processing = True
     base_dir = OUTPUT_DIR / req.user_id / req.story_id
     json_dir = base_dir / "json"
     t2i_dir = base_dir / "T2I"
@@ -239,9 +271,38 @@ def render_video(req: RenderVideoRequest, background_tasks: BackgroundTasks):
                 seq = int(s.get('sequence', 0))
                 video_raw = i2v_dir / f"shot_{seq:02d}_raw.mp4"
                 video_final = i2v_dir / f"shot_{seq:02d}_final.mp4"
-                # 取消 TTS，保留 Pixverse 自带音频
-                shutil.copyfile(video_raw, video_final)
-                obj = f"users/{req.user_id}/stories/{req.story_id}/i2v/shot_{seq:02d}/final.mp4"
+                raw_obj = f"story/{req.user_id}/{req.story_id}/i2v/shot_{seq:02d}/raw.mp4"
+                raw_url = upload_to_oss(raw_obj, video_raw)
+                enhanced_downloaded = False
+                if ENHACE_LIST and raw_url:
+                    try:
+                        idx = max(seq - 1, 0) % len(ENHACE_LIST)
+                        enhance_host = ENHACE_LIST[idx]
+                        payload = {
+                            "url": raw_url,
+                            "scale": int(getattr(req, "scale", 2) or 2),
+                            "multi": int(getattr(req, "multi", 2) or 2),
+                            "user_id": req.user_id,
+                            "story_id": req.story_id,
+                            "shot_id": s.get('id', f'shot_{seq:02d}')
+                        }
+                        r = requests.post(enhance_host, json=payload, timeout=(10, 120))
+                        if r.status_code == 200:
+                            data = r.json() or {}
+                            enhanced_url = data.get("url")
+                            if enhanced_url:
+                                if enhanced_url.startswith("http://"):
+                                    enhanced_url = "https://" + enhanced_url[7:]
+                                vresp = requests.get(enhanced_url, timeout=(10, 120))
+                                if vresp.status_code == 200:
+                                    with open(video_final, 'wb') as f:
+                                        f.write(vresp.content)
+                                    enhanced_downloaded = True
+                    except Exception:
+                        pass
+                if not enhanced_downloaded:
+                    shutil.copyfile(video_raw, video_final)
+                obj = f"story/{req.user_id}/{req.story_id}/i2v/shot_{seq:02d}/final.mp4"
                 url = upload_to_oss(obj, video_final)
                 s['video_url'] = url or f"/static/{req.user_id}/{req.story_id}/I2V/{video_final.name}"
                 upsert_shot(req.user_id, req.story_id, s.get('id', f'shot_{seq:02d}'), s)
@@ -253,7 +314,7 @@ def render_video(req: RenderVideoRequest, background_tasks: BackgroundTasks):
                 for p in valid_clips:
                     f.write(f"file '{p.resolve()}'\n")
             concat_clips(list_file, final_out)
-        mv_obj = f"users/{req.user_id}/stories/{req.story_id}/movie/final.mp4"
+        mv_obj = f"story/{req.user_id}/{req.story_id}/movie/final.mp4"
         mv_url = upload_to_oss(mv_obj, final_out)
         update_story_video_url(req.user_id, req.story_id, mv_url or str(final_out.resolve()))
         update_operation(req.user_id, req.operation_id, "Success")
@@ -266,4 +327,11 @@ def render_video(req: RenderVideoRequest, background_tasks: BackgroundTasks):
     #     placeholder = next(i2v_dir.glob("final.mp4"), final_out)
     #     return RenderVideoResponse(operation=OperationStatus(operation_id=req.operation_id, status="Running"), video_url=f"/static/{req.user_id}/{req.story_id}/I2V/{placeholder.name}")
     video_url = worker_concat()
+    with _render_lock:
+        _current_processing = False
+        if _render_queue:
+            try:
+                _render_queue.popleft()
+            except Exception:
+                pass
     return RenderVideoResponse(operation=OperationStatus(operation_id=req.operation_id, status="Success"), video_url=video_url)

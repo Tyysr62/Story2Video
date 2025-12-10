@@ -150,10 +150,9 @@ def run_i2v(start_image: Path, text_prompt: str, target_path: Path, workflow_i2v
                 'motion_mode': 'normal',
                 'prompt': text_prompt,
                 'quality': '540p',
-                'seed': 0,
-                'style': 'realistic',
-                'lip_sync_tts_switch': False,
-                'lip_sync_tts_content': lip_sync_tts_content or '',
+                # 'seed': 0,
+                # 'lip_sync_tts_switch': False,
+                # 'lip_sync_tts_content': lip_sync_tts_content or '',
                 'generate_audio_switch': True,
                 'generate_multi_clip_switch': False,
                 'thinking_type': 'enabled'
@@ -201,6 +200,8 @@ def run_i2v(start_image: Path, text_prompt: str, target_path: Path, workflow_i2v
                         time.sleep(2)
                         tries += 1
                         continue
+                    if url.startswith("http://"):
+                        url = "https://" + url[7:]
                     v = requests.get(url, timeout=300)
                     v.raise_for_status()
                     with open(target_path, 'wb') as f:
