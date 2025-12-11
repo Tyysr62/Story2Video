@@ -10,6 +10,7 @@ rust = "latest"
 [env]
 WEBKIT_DISABLE_DMABUF_RENDERER = 1
 QT_QPA_PLATFORM = "xcb"
+NO_STRIP = true
 
 [settings]
 # 启用实验性特性以支持更激进的版本解析策略

@@ -24,6 +24,7 @@ import Assets from "./pages/Assets";
 import Preview from "./pages/Preview";
 import Operations from "./pages/Operations";
 import "@story2video/ui/global.css";
+import { GlobalToastListener } from "./components/GlobalToastListener";
 
 const SidebarItem = ({
   to,
@@ -119,6 +120,7 @@ function App() {
 
   return (
     <GluestackUIProvider mode={mode}>
+      <GlobalToastListener />
       <Router>
         <Routes>
           <Route element={<Layout />}>

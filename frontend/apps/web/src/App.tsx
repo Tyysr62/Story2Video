@@ -13,12 +13,14 @@ import Assets from "./pages/Assets";
 import Preview from "./pages/Preview";
 import Operations from "./pages/Operations";
 import "@story2video/ui/global.css";
+import { GlobalToastListener } from "./components/GlobalToastListener";
 
 function App() {
   const [mode] = useState<"light" | "dark">("light");
 
   return (
     <GluestackUIProvider mode={mode}>
+      <GlobalToastListener />
       <Router>
         <Routes>
           <Route element={<Layout />}>

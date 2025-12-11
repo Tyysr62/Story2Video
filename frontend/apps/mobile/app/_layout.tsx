@@ -13,6 +13,7 @@ import { useColorScheme } from "../hooks/use-color-scheme";
 import { ApiProvider, QueryProvider, IHttpClient } from "@story2video/core";
 import { createAxiosHttpClient } from "@story2video/core/axios";
 import { createMockHttpClient } from "@story2video/core/mock";
+import { GlobalToastListener } from "../components/GlobalToastListener";
 
 export const unstable_settings = {
   anchor: "(tabs)",
@@ -46,6 +47,7 @@ export default function RootLayout() {
           <ThemeProvider
             value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
           >
+            <GlobalToastListener />
             <Stack>
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
               <Stack.Screen
