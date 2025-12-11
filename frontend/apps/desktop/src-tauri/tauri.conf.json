@@ -14,11 +14,13 @@
       {
         "title": "desktop",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "devtools": true
       }
     ],
     "security": {
-      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:;"
+      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' https: asset: http://asset.localhost data:; media-src 'self' https: asset: http://asset.localhost data:; font-src 'self' data:; style-src 'self' 'unsafe-inline' data:; script-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:1420 ipc: http://ipc.localhost https:;",
+      "dangerousDisableAssetCspModification": true
     }
   },
   "bundle": {
