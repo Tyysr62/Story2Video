@@ -5,8 +5,8 @@
 
 **一体化 AI 视频生成模型服务**。本项目旨在提供从剧本到完整视频的全链路自动化服务，涵盖分镜生成、关键帧绘制、图生视频、语音合成及后期拼接。
 
-[🎥 查看演示视频](http://bytedance-s2v.oss-cn-beijing.aliyuncs.com/story%2F11111111-2222-3333-4444-555555555555%2F4b7fd35c-e675-47d8-8c70-58fbe0d8c99d%2Fmovie%2Ffinal.mp4?OSSAccessKeyId=LTAI5tSADQjYfXrA2WuoLbXy&Expires=1765524817&Signature=Wxo0syfSHRrxdEydIaxDXTOjshk%3D)
-
+[🎥 查看演示视频](https://bytedance-s2v.oss-cn-beijing.aliyuncs.com/stories/story_11111111-2222-3333-4444-555555555555_4b7fd35c-e675-47d8-8c70-58fbe0d8c99d_movie_final%20%281%29.mp4)
+[🎥 增强视频](https://bytedance-s2v.oss-cn-beijing.aliyuncs.com/stories/test_2X_48fps.mp4)
 ---
 
 ## 📖 目录
