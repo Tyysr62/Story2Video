@@ -1,9 +1,9 @@
 """
-主调度脚本 - 根据 LOCAL_INFERENCE 环境变量选择使用本地推理或API推理
+主调度脚本 - 根据 T2I_WITH_API 环境变量选择使用本地推理或API推理
 
 使用方法:
-    LOCAL_INFERENCE=true python main_dispatcher.py   # 使用本地推理
-    LOCAL_INFERENCE=false python main_dispatcher.py  # 使用API推理
+    T2I_WITH_API=true python main_dispatcher.py   # 使用本地推理
+    T2I_WITH_API=false python main_dispatcher.py  # 使用API推理
 
 注意：首次使用前需要完成文件夹重命名（见下方说明）
 """
@@ -15,11 +15,11 @@ from pathlib import Path
 # 获取当前脚本所在目录的父目录（model-serving）
 BASE_DIR = Path(__file__).parent
 
-# 读取 LOCAL_INFERENCE 环境变量
-LOCAL_INFERENCE = os.getenv("LOCAL_INFERENCE", "false").lower() in {"1", "true", "yes"}
+# 读取 T2I_WITH_API 环境变量
+T2I_WITH_API = os.getenv("T2I_WITH_API", "false").lower() in {"1", "true", "yes"}
 
-# 根据 LOCAL_INFERENCE 选择模块路径
-if LOCAL_INFERENCE:
+# 根据 T2I_WITH_API 选择模块路径
+if T2I_WITH_API:
     app_dir = BASE_DIR / "app_local"
     mode_name = "本地推理模式"
     t2i_desc = "ComfyUI 本地模型"
@@ -42,8 +42,8 @@ if not app_dir.exists():
     print("   Move-Item -Path 'app_local' -Destination '../app_local'")
     print("   （或手动重命名：app → app_api, app(1) → app_local）")
     print("\n2. 然后运行:")
-    print("   LOCAL_INFERENCE=false python app/main_dispatcher.py  # API模式")
-    print("   LOCAL_INFERENCE=true python app/main_dispatcher.py   # 本地模式")
+    print("   T2I_WITH_API=false python app/main_dispatcher.py  # API模式")
+    print("   T2I_WITH_API=true python app/main_dispatcher.py   # 本地模式")
     print("=" * 70)
     sys.exit(1)
 
@@ -51,7 +51,7 @@ if not app_dir.exists():
 sys.path.insert(0, str(app_dir.parent))
 
 print("\n" + "=" * 70)
-print(f"{'🟢' if LOCAL_INFERENCE else '🔵'} {mode_name} (LOCAL_INFERENCE={LOCAL_INFERENCE})")
+print(f"{'🟢' if T2I_WITH_API else '🔵'} {mode_name} (T2I_WITH_API={T2I_WITH_API})")
 print(f"   📁 模块目录: {app_dir}")
 print(f"   🖼️  文生图: {t2i_desc}")
 print(f"   🎬 图生视频: {i2v_desc}")

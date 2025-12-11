@@ -1,0 +1,12 @@
+{
+  "id": "shot_02",
+  "sequence": 2,
+  "subject": "蓝精灵们在山巅玩耍",
+  "detail": "Animated style, a group of small blue-skinned Smurfs playing joyfully on a mountain peak: first they leap playfully one by one, then dart swiftly between treetops like shimmering sparks, finally gathering together atop the mist-shrouded summit, surrounded by drifting clouds and twinkling stars; background features a vast sea of clouds and floating whimsical mushrooms, soft golden-hour light with gentle volumetric glow; camera orbits smoothly around the scene in a full 360-degree cinematic loop; background sound: cheerful laughter and delicate jingling bells. Voiceover says in Chinese \"他们每天在山上快乐地玩耍\".",
+  "camera": "全方位环绕",
+  "image_detail": "(动画风格) 一群青蓝色皮肤的小精灵在山巅树梢间跳跃，背景是漫天云海和漂浮的蘑菇",
+  "narration": "他们每天在山上快乐地玩耍",
+  "tone": "童趣欢快",
+  "image_url": "http://bytedance-s2v.oss-cn-beijing.aliyuncs.com/story%2F11111111-2222-3333-4444-555555555555%2F4b7fd35c-e675-47d8-8c70-58fbe0d8c99d%2Ft2i%2Fshot_02%2Fkeyframe.png?OSSAccessKeyId=LTAI5tSADQjYfXrA2WuoLbXy&Expires=1765524632&Signature=dCmFkhAHKbgTtX3ui2JzNDABTmU%3D",
+  "video_url": "http://bytedance-s2v.oss-cn-beijing.aliyuncs.com/story%2F11111111-2222-3333-4444-555555555555%2F4b7fd35c-e675-47d8-8c70-58fbe0d8c99d%2Fi2v%2Fshot_02%2Ffinal.mp4?OSSAccessKeyId=LTAI5tSADQjYfXrA2WuoLbXy&Expires=1765524814&Signature=G%2FxHt0OubeJNXkuzPEVLpZWuDBQ%3D"
+}
