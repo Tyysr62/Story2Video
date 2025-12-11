@@ -7,10 +7,10 @@ from .utils import setup_logger, ensure_dir, public_url
 from .rife_service import IFService
 
 # OSS 配置
-OSS_ENDPOINT: str = os.getenv("OSS_ENDPOINT", "oss-cn-beijing.aliyuncs.com")
-OSS_ACCESS_KEY_ID: str = os.getenv("OSS_ACCESS_KEY_ID", "LTAI5tSADQjYfXrA2WuoLbXy")
-OSS_ACCESS_KEY_SECRET: str = os.getenv("OSS_ACCESS_KEY_SECRET", "3WRvSjX3rX1mwoXKjcCqVMx41mXR8F")
-OSS_BUCKET: str = os.getenv("OSS_BUCKET", "bytedance-s2v")
+OSS_ENDPOINT: str = os.getenv("OSS_ENDPOINT", "")
+OSS_ACCESS_KEY_ID: str = os.getenv("OSS_ACCESS_KEY_ID", "")
+OSS_ACCESS_KEY_SECRET: str = os.getenv("OSS_ACCESS_KEY_SECRET", "")
+OSS_BUCKET: str = os.getenv("OSS_BUCKET", "")
 OSS_BASE_URL: str = os.getenv("OSS_BASE_URL", "")
 OSS_URL_EXPIRES: int = int(os.getenv("OSS_URL_EXPIRES", "86400"))
 
