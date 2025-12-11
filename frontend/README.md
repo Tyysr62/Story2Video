@@ -1,220 +1,106 @@
 # Story2Video Frontend Monorepo
 
-## 📂 架构概览 (Architecture)
+Monorepo for desktop (Tauri), mobile (Expo + React Native), and web (React + Vite) apps using Turborepo + pnpm workspaces.
 
-本项目采用 **Turborepo** + **pnpm workspaces** 进行管理。
-
-### 目录结构
+## 目录与技术
 
 ```
 frontend/
-├── apps/                   # 具体应用程序
-│   ├── desktop/            # 🖥️ 桌面端应用 (Tauri + React + Vite)
-│   ├── mobile/             # 📱 移动端应用 (Expo + React Native)
-│   └── web/                # 🌐 Web 端应用 (React + Vite)
-├── packages/               # 共享代码库
-│   ├── core/               # 🧠 核心业务逻辑 (API, WebSocket, Types, Hooks)
-│   └── ui/                 # 🎨 UI 组件库 (Gluestack UI + NativeWind)
-├── turbo.json              # Turborepo 配置文件
-├── pnpm-workspace.yaml     # pnpm 工作区配置
-└── package.json            # 根目录配置
+├── apps/
+│   ├── desktop/   # Tauri + React + Vite
+│   ├── mobile/    # Expo + React Native + NativeWind
+│   └── web/       # React + Vite
+├── packages/
+│   ├── core/      # API / types / sockets / hooks
+│   └── ui/        # Shared UI (Gluestack UI + NativeWind)
+├── turbo.json
+├── pnpm-workspace.yaml
+└── package.json
 ```
 
-### 技术栈
+- 包管理：pnpm
+- Monorepo：Turborepo
+- 桌面端：Tauri v2, React 19, Vite
+- 移动端：Expo, React Native, NativeWind
+- Web：React 19, Vite
+- 通信：WebSocket + REST (Axios/Fetch)
 
-- **包管理**: pnpm
-- **Monorepo 工具**: Turborepo
-- **桌面端**: Tauri v2, React 19, Vite
-- **移动端**: Expo, React Native, NativeWind (Tailwind for RN)
-- **Web 端**: React 19, Vite, 响应式设计 (桌面/移动端浏览器)
-- **共享 UI**: Gluestack UI
-- **API 通信**: WebSocket (实时进度), Axios/Fetch (REST API)
+## 环境与安装
 
----
+1) 用 mise 准备工具链（推荐）
+- 在 `frontend/` 执行 `mise install`，按 `mise.toml` 安装 Node 22、pnpm 9、Java 17、Rust 及 `eas-cli`/`vercel`。
+- 在 shell 中启用：`mise activate fish`（或 bash/zsh），进入仓库自动切版本。
+- Expo/EAS 默认读取 `EXPO_USE_PNPM=1` 等环境（已在 `eas.json` 中声明）。
 
-## 🚀 快速开始 (Quick Start)
-
-### 1. 环境准备
-
-确保你的开发环境已安装以下工具：
-- **Node.js** (推荐 v18 或更高版本)
-- **pnpm** (必须安装): `npm install -g pnpm`
-- **Rust** (仅桌面端开发需要，用于 Tauri): [安装指南](https://www.rust-lang.org/tools/install)
-- **Android Studio / Xcode** (仅移动端开发需要)
-
-### 2. 安装依赖
-
-在项目根目录下运行：
-
+2) 依赖安装
 ```bash
 pnpm install
 ```
 
-### 3. 启动开发环境
+3) 开发命令
+- 全部应用：`pnpm dev`
+- 桌面端：`pnpm -F desktop dev`
+- 移动端：`pnpm -F mobile start`
+- Web：`pnpm dev:web`
 
-你可以一次性启动所有应用，或者只启动特定的应用。
+常用脚本（根目录）：`pnpm build`、`pnpm lint`、`pnpm clean`。
 
-**启动所有应用：**
-```bash
-pnpm dev
-```
+## Mobile (Expo) iOS 本地编译与调试
 
-**只启动桌面端：**
-```bash
-pnpm --filter desktop dev
-# 或者进入目录
-cd apps/desktop && pnpm dev
-```
-
-**只启动移动端：**
-```bash
-pnpm --filter mobile start
-# 或者进入目录
-cd apps/mobile && pnpm start
-```
-
-**只启动 Web 端：**
-```bash
-pnpm dev:web
-# 或者进入目录
-cd apps/web && pnpm dev
-```
-
----
-
-## 🧠 核心 API 实现与规范 (`packages/core`)
-
-核心逻辑位于 `packages/core`，它不包含任何 UI 代码，只负责数据和通信。
-
-### 1. 领域模型 (Domain Types)
-位于 `src/types/domain.ts`。主要实体包括：
-- **Story**: 包含脚本内容、风格等信息。
-- **Shot**: 分镜，包含提示词(Prompt)、旁白、图片/音频 URL。
-- **Operation**: 长耗时任务（LRO），用于追踪视频生成进度。
-
-### 2. WebSocket 管理器 (`SocketManager`)
-位于 `src/api/socket.ts`。用于实时接收生成进度。
-
-**功能特性：**
-- **自动重连**: 连接断开后会自动尝试重连。
-- **心跳检测**: 每 30 秒发送 `PING` 保持连接活跃。
-- **订阅机制**: 支持通过 `subscribe(topic, callback)` 监听特定任务的更新。
-
-**使用示例：**
-```typescript
-import { socketManager } from '@story2video/core';
-
-// 连接 Socket
-socketManager.connect('wss://api.example.com', 'your-auth-token');
-
-// 订阅任务进度
-const unsubscribe = socketManager.subscribe('operations/123', (payload) => {
-  console.log(`进度: ${payload.progress_percent}%`);
-  if (payload.state === 'STATE_SUCCEEDED') {
-    console.log('生成完成！');
-  }
-});
-
-// 组件卸载时取消订阅
-unsubscribe();
-```
-
-### 3. HTTP 客户端接口
-定义了标准的 REST 请求接口 `IHttpClient`，支持 `get`, `post`, `patch`, `delete`。
-
----
-
-## 🛠️ 常用命令 (Common Commands)
-
-在根目录下运行这些命令：
-
-| 命令 | 说明 |
-|------|------|
-| `pnpm install` | 安装所有依赖（包括 workspaces） |
-| `pnpm dev` | 并行启动所有应用的开发服务器 |
-| `pnpm build` | 构建所有应用和包 |
-| `pnpm lint` | 运行代码检查 |
-| `pnpm clean` | 清理构建产物（如果配置了的话） |
-
-**针对特定应用的命令：**
-
-使用 `--filter` 参数（或 `-F`）指定目标包名。
-
-- **Desktop 相关**:
-  - `pnpm -F desktop tauri dev`: 启动 Tauri 开发窗口
-  - `pnpm -F desktop build`: 构建桌面端应用
-
-- **Mobile 相关**:
-  - `pnpm -F mobile android`: 启动 Android 模拟器
-  - `pnpm -F mobile ios`: 启动 iOS 模拟器
-  - `pnpm -F mobile web`: 在浏览器中预览移动端应用
-
-- **Web 相关**:
-  - `pnpm dev:web`: 启动 Web 开发服务器
-  - `pnpm -F web build`: 构建 Web 应用
-
----
-
-## 🧩 开发指南
-
-### 添加新依赖
-由于是 Monorepo，安装依赖时需要指定安装到哪个包。
-
-**给 desktop 安装 axios:**
-```bash
-pnpm --filter desktop add axios
-```
-
-**给 core 包安装 lodash:**
-```bash
-pnpm --filter @story2video/core add lodash
-```
-
-### 引用 workspace 包
-如果你在 `desktop` 中需要使用 `core` 包，`apps/desktop/package.json` 中应如下声明：
-```json
-"dependencies": {
-  "@story2video/core": "workspace:^"
-}
-```
-
-### 样式规范
-我们使用 **Tailwind CSS** (Web/Desktop) 和 **NativeWind** (Mobile)。尽量使用原子类（utility classes）来编写样式，以保持 UI 包的统一性。
-
----
-
-## 📦 EAS 构建指南（Expo in Monorepo）
-
-
-### 1) 触发构建（在 apps/mobile 目录）
-
-初始化与登录（首次）：
-```bash
-eas login
-eas init
-```
-
-常用构建命令：
-- 开发客户端（Dev Client，内部分发）：
+- 前置：Xcode 15+、CocoaPods (`sudo gem install cocoapods`)，已安装 Xcode Command Line Tools。
+- 首次生成原生工程（可修复 scheme/workspace 丢失）：
   ```bash
-  eas build -p ios --profile development
-  eas build -p android --profile development
+  cd apps/mobile
+  pnpm start        # 让 Expo 生成本地 iOS 工程及 schemes
   ```
-- 内测分发（Preview）：
+- 启动模拟器调试：在 `pnpm start` 的交互里按 `i`，或直接 `pnpm -F mobile ios`。
+- 真机开发客户端：
   ```bash
-  eas build -p ios --profile preview
-  eas build -p android --profile preview
+  cd apps/mobile
+  eas build --local -p ios --profile development   # 本地 dev client，需 Xcode 与签名证书
   ```
-- 生产发布（Production）：
+- 复现 EAS Release 行为：
   ```bash
-  eas build -p ios --profile production
-  eas build -p android --profile production
+  pnpm exec expo run:ios --configuration Release   # 本地 Release 编译，等效 EAS Release 设置
+  pnpm exec expo run:android --variant release     # Android 对应命令
   ```
+- 生产/预发签名构建：
+  ```bash
+  eas build -p ios --profile production   # 生产
+  eas build -p ios --profile preview      # 预发/内测
+  ```
+- Bundle Identifier / Scheme：`com.maredevi.story2video` / `mobile`（见 `app.json`）。
+- 若遇到 workspace/scheme 解析异常或 CocoaPods 缺失：运行 `pnpm start` 生成工程并自动安装 Pods；必要时执行 `npx pod-install`。
 
-### 2) Secrets 与环境变量
+## EAS 使用要点（apps/mobile）
 
-- 注入密钥/环境变量（如 API_KEY）：
+- 登录初始化：
   ```bash
-  eas secret:create --name API_KEY --value "xxxxx"
+  cd apps/mobile
+  eas login
+  eas init
   ```
-- 也可在 `eas.json` 的 `env` 中配置非敏感变量。敏感信息优先使用 `eas secret`。
+- Secrets：敏感值用 `eas secret:create --name KEY --value VALUE`；非敏感值可放 `eas.json` 的 `env`。
+- 主要 Profile：
+  - `development`：Dev Client 内部分发
+  - `preview`：内测渠道
+  - `production`：商店/正式发布（启用 remote appVersion）
+  - 如果要生成 iOS 模拟器包，可在 profile 的 `ios` 下设置 `"simulator": true`
+
+## 核心包 (`packages/core`)
+
+- 领域模型：`src/types/domain.ts`（Story / Shot / Operation）。
+- WebSocket 管理：`src/api/socket.ts`，支持自动重连、心跳与 `subscribe(topic, cb)`。
+- HTTP 接口：`IHttpClient` 定义 `get/post/patch/delete`，由各端实现。
+
+## 开发指引
+
+- 安装依赖到特定包：`pnpm --filter desktop add axios`；`pnpm --filter @story2video/core add lodash`。
+- 引用 workspace 包：`"@story2video/core": "workspace:^"`（写入目标包 `package.json`）。
+- 样式：Web/Desktop 用 Tailwind；Mobile 用 NativeWind。
+
+## 故障排查（iOS Expo 常见）
+
+- Scheme/workspace 找不到：在 `apps/mobile` 运行 `pnpm start` 或 `npx expo prebuild --clean` 重新生成原生工程。
+- Pods 未安装或编译失败：执行 `npx pod-install`（需 CocoaPods）。
+- Expo CLI 找不到 pnpm：确认已 `mise activate` 或全局安装 pnpm；`echo $PNPM_HOME` 并加入 PATH。

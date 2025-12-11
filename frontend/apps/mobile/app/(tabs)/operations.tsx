@@ -16,8 +16,14 @@ import {
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useOperationsWithPolling, OperationStatus, OperationType } from "@story2video/core";
 import type { Operation } from "@story2video/core";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 
 export default function OperationsScreen() {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === "dark";
+  const iconColor = isDark ? "#e5e7eb" : "#4b5563";
+  const pageBg = isDark ? "$backgroundDark950" : "$backgroundLight0";
+  const refreshBg = isDark ? "$backgroundDark800" : "$backgroundLight100";
   const [filter, setFilter] = useState<OperationStatus | "all">("all");
 
   // 使用轮询 hook 获取真实数据
@@ -116,14 +122,14 @@ export default function OperationsScreen() {
   }) => (
     <Pressable onPress={() => setFilter(value)}>
       <Box
-        bg={filter === value ? "$primary500" : "$backgroundLight100"}
+        bg={filter === value ? "$primary500" : (isDark ? "$backgroundDark800" : "$backgroundLight100")}
         px="$3"
         py="$2"
         borderRadius="$full"
       >
         <Text
           size="sm"
-          color={filter === value ? "$white" : "$textLight700"}
+          color={filter === value ? "$white" : (isDark ? "$textDark100" : "$textLight700")}
           fontWeight={filter === value ? "$bold" : "$normal"}
         >
           {label}
@@ -133,13 +139,13 @@ export default function OperationsScreen() {
   );
 
   return (
-    <Box flex={1} bg="$backgroundLight0">
+    <Box flex={1} bg={pageBg}>
       <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
         <VStack space="md" flex={1} p="$4">
           <HStack justifyContent="space-between" alignItems="center">
             <VStack space="xs" flex={1}>
               <Heading size="xl">任务列表</Heading>
-              <Text size="sm" color="$textLight500">
+              <Text size="sm" color="$textLight500" _dark={{ color: "$textDark300" }}>
                 查看所有任务的执行状态
                 {pendingCount > 0 && ` (${pendingCount} 个进行中)`}
               </Text>
@@ -148,7 +154,7 @@ export default function OperationsScreen() {
               <Box
                 w="$10"
                 h="$10"
-                bg="$backgroundLight100"
+                bg={refreshBg}
                 borderRadius="$full"
                 alignItems="center"
                 justifyContent="center"
@@ -156,7 +162,7 @@ export default function OperationsScreen() {
                 {isLoading ? (
                   <Spinner size="small" />
                 ) : (
-                  <FontAwesome name="refresh" size={16} color="#666" />
+                  <FontAwesome name="refresh" size={16} color={iconColor} />
                 )}
               </Box>
             </Pressable>
@@ -182,7 +188,7 @@ export default function OperationsScreen() {
             }
             ListEmptyComponent={
               <Box p="$8" alignItems="center">
-                <Text color="$textLight400">
+                <Text color="$textLight400" _dark={{ color: "$textDark300" }}>
                   {operations.length === 0 ? "暂无任务，创建故事后任务将显示在这里" : "没有符合筛选条件的任务"}
                 </Text>
               </Box>
@@ -208,6 +214,10 @@ export default function OperationsScreen() {
                     shadowOpacity={0.05}
                     shadowRadius={2}
                     elevation={1}
+                    _dark={{
+                      bg: "$backgroundDark900",
+                      borderColor: isClickable ? "$primary500" : "$borderDark700",
+                    }}
                   >
                   <VStack space="sm">
                     {/* Header Row */}
@@ -220,14 +230,15 @@ export default function OperationsScreen() {
                           borderRadius="$md"
                           alignItems="center"
                           justifyContent="center"
+                          _dark={{ bg: "$backgroundDark800" }}
                         >
-                          <FontAwesome name={typeIcon} size={16} color="#666" />
+                          <FontAwesome name={typeIcon} size={16} color={iconColor} />
                         </Box>
                         <VStack flex={1}>
                           <Text fontWeight="$bold" size="sm" numberOfLines={1}>
                             {getTypeLabel(op.type)}
                           </Text>
-                          <Text size="xs" color="$textLight400">
+                          <Text size="xs" color="$textLight400" _dark={{ color: "$textDark300" }}>
                             {op.id.slice(0, 8)}...
                           </Text>
                         </VStack>
@@ -251,8 +262,18 @@ export default function OperationsScreen() {
 
                     {/* Payload Info */}
                     {op.payload && (
-                      <Box bg="$backgroundLight50" p="$2" borderRadius="$sm">
-                        <Text size="xs" color="$textLight600" numberOfLines={2}>
+                      <Box
+                        bg="$backgroundLight50"
+                        p="$2"
+                        borderRadius="$sm"
+                        _dark={{ bg: "$backgroundDark800" }}
+                      >
+                        <Text
+                          size="xs"
+                          color="$textLight600"
+                          _dark={{ color: "$textDark200" }}
+                          numberOfLines={2}
+                        >
                           {op.payload.display_name || op.payload.details || JSON.stringify(op.payload).slice(0, 80)}
                         </Text>
                       </Box>
@@ -260,8 +281,18 @@ export default function OperationsScreen() {
 
                     {/* Error Message */}
                     {op.status === "failed" && op.error_msg && (
-                      <Box bg="$error50" p="$2" borderRadius="$sm">
-                        <Text size="xs" color="$error700" numberOfLines={2}>
+                      <Box
+                        bg="$error50"
+                        p="$2"
+                        borderRadius="$sm"
+                        _dark={{ bg: "$error900" }}
+                      >
+                        <Text
+                          size="xs"
+                          color="$error700"
+                          _dark={{ color: "$error100" }}
+                          numberOfLines={2}
+                        >
                           {op.error_msg.slice(0, 100)}...
                         </Text>
                       </Box>
@@ -270,12 +301,16 @@ export default function OperationsScreen() {
                     {/* Time Info */}
                     <HStack justifyContent="space-between" flexWrap="wrap">
                       <VStack>
-                        <Text size="xs" color="$textLight400">创建</Text>
+                        <Text size="xs" color="$textLight400" _dark={{ color: "$textDark300" }}>
+                          创建
+                        </Text>
                         <Text size="xs">{formatTime(op.created_at)}</Text>
                       </VStack>
                       {op.finished_at && (
                         <VStack>
-                          <Text size="xs" color="$textLight400">完成</Text>
+                          <Text size="xs" color="$textLight400" _dark={{ color: "$textDark300" }}>
+                            完成
+                          </Text>
                           <Text size="xs">{formatTime(op.finished_at)}</Text>
                         </VStack>
                       )}

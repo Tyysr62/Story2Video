@@ -6,12 +6,26 @@
   "permissions": [
     "core:default",
     "opener:default",
+    "dialog:default",
+    "fs:default",
+    "fs:allow-write-file",
+    "fs:allow-create",
     {
       "identifier": "http:default",
       "allow": [
         { "url": "https://*" },
         { "url": "http://localhost:*" },
         { "url": "http://127.0.0.1:*" }
+      ]
+    },
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        "$DOWNLOAD/**",
+        "$DESKTOP/**",
+        "$HOME/**",
+        "$APPDATA/**",
+        "$APPLOCALDATA/**"
       ]
     }
   ]

@@ -58,7 +58,7 @@ export default function RootLayout() {
               />
               <Stack.Screen name="preview" options={{ title: "视频预览", headerShown: false }} />
             </Stack>
-            <StatusBar style="auto" />
+            <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
           </ThemeProvider>
         </ApiProvider>
       </QueryProvider>

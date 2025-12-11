@@ -38,6 +38,7 @@ import type {
   StoryStyle,
 } from "../types/domain";
 import { StoryStatus } from "../types/domain";
+import { normalizeMediaUrl } from "../utils/url";
 
 /**
  * 后端返回的故事详情响应格式（GET /v1/stories/{storyId}）
@@ -108,8 +109,8 @@ function transformBackendStoryToStory(backend: BackendStoryDetailResponse["story
     duration: 0, // 后端未返回 duration
     status: mapCompileStateToStatus(backend.compile_state),
     timeline: null,
-    cover_url: backend.cover_url,
-    video_url: backend.video_url,
+    cover_url: normalizeMediaUrl(backend.cover_url),
+    video_url: normalizeMediaUrl(backend.video_url),
   };
 }
 
@@ -242,7 +243,14 @@ export function createApi(client: IHttpClient, basePath = "/v1"): ApiSDK {
 
     list: (params, config) => {
       const merged = withParams(config, params);
-      return client.get<ListStoriesResponse>(`${basePath}/stories`, merged);
+      return client.get<ListStoriesResponse>(`${basePath}/stories`, merged).then((res) => ({
+        ...res,
+        items: res.items.map((item) => ({
+          ...item,
+          cover_url: normalizeMediaUrl(item.cover_url),
+          video_url: normalizeMediaUrl(item.video_url),
+        })),
+      }));
     },
 
     get: async (storyId, config) => {
@@ -263,19 +271,35 @@ export function createApi(client: IHttpClient, basePath = "/v1"): ApiSDK {
     list: (storyId, params, config) => {
       const sid = encode(storyId);
       const merged = withParams(config, params);
-      return client.get<ListShotsResponse>(`${basePath}/stories/${sid}/shots`, merged);
+      return client.get<ListShotsResponse>(`${basePath}/stories/${sid}/shots`, merged).then((res) => ({
+        ...res,
+        shots: res.shots.map((shot) => ({
+          ...shot,
+          image_url: normalizeMediaUrl(shot.image_url),
+        })),
+      }));
     },
 
     get: (storyId, shotId, config) => {
       const sid = encode(storyId);
       const shid = encode(shotId);
-      return client.get<Shot>(`${basePath}/stories/${sid}/shots/${shid}`, config);
+      return client
+        .get<Shot>(`${basePath}/stories/${sid}/shots/${shid}`, config)
+        .then((shot) => ({
+          ...shot,
+          image_url: normalizeMediaUrl(shot.image_url),
+        }));
     },
 
     update: (storyId, shotId, req, config) => {
       const sid = encode(storyId);
       const shid = encode(shotId);
-      return client.patch<Shot>(`${basePath}/stories/${sid}/shots/${shid}`, req, config);
+      return client
+        .patch<Shot>(`${basePath}/stories/${sid}/shots/${shid}`, req, config)
+        .then((shot) => ({
+          ...shot,
+          image_url: normalizeMediaUrl(shot.image_url),
+        }));
     },
 
     regenerate: (storyId, shotId, req, config) => {

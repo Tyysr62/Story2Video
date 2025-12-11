@@ -16,10 +16,12 @@
     "react-native-web": "~0.19.13",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-http": "^2.5.4",
+    "@tauri-apps/plugin-dialog": "^2",
+    "@tauri-apps/plugin-fs": "^2",
     "@tauri-apps/plugin-opener": "^2",
     "lucide-react": "^0.554.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
     "react-router-dom": "^7.9.6"
   },
   "devDependencies": {

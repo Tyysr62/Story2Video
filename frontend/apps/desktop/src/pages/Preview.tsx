@@ -17,6 +17,9 @@ import {
   Spinner,
 } from "@story2video/ui";
 import { useStory } from "@story2video/core";
+import { save } from "@tauri-apps/plugin-dialog";
+import { writeFile } from "@tauri-apps/plugin-fs";
+import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 
 // Fallback mock video URL
 const FALLBACK_VIDEO_URL = "https://www.w3schools.com/html/mov_bbb.mp4";
@@ -38,8 +41,32 @@ const Preview = () => {
   const handleExport = async () => {
     setExporting(true);
     try {
-      // TODO: 实现实际的导出逻辑
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      if (!story?.video_url) {
+        throw new Error("暂无可导出的视频");
+      }
+
+      const safeName = `${storyName.replace(/[^a-zA-Z0-9-_]+/g, "_") || "story2video"}.mp4`;
+      const targetPath = await save({
+        filters: [{ name: "Video", extensions: ["mp4"] }],
+        defaultPath: safeName,
+      });
+
+      // 用户取消保存
+      if (!targetPath) {
+        setExporting(false);
+        return;
+      }
+
+      const response = await tauriFetch(videoUrl, {
+        // Ensure we download the file; plugin-http bypasses CORS
+        method: "GET",
+      });
+      if (!response.ok) {
+        throw new Error(`下载失败: ${response.status}`);
+      }
+
+      const buffer = await response.arrayBuffer();
+      await writeFile(targetPath, new Uint8Array(buffer));
 
       toast.show({
         placement: "top",
@@ -59,7 +86,7 @@ const Preview = () => {
           return (
             <Toast action="error" variant="accent" nativeID={id}>
               <ToastTitle>错误</ToastTitle>
-              <ToastDescription>导出视频失败。</ToastDescription>
+              <ToastDescription>{err instanceof Error ? err.message : "导出视频失败。"}</ToastDescription>
             </Toast>
           );
         },

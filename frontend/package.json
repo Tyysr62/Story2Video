@@ -16,6 +16,13 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "pnpm": {
+    "overrides": {
+      "react": "19.1.0",
+      "react-dom": "19.1.0",
+      "react-native-svg": "15.12.1"
+    }
+  },
   "devDependencies": {
     "@tanstack/react-query": "^5.90.11",
     "tailwindcss": "^3.4.1",

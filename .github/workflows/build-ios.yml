@@ -1,0 +1,163 @@
+name: Build iOS IPA (Unsigned)
+
+on:
+  workflow_dispatch: # 允许手动点击按钮触发构建
+
+jobs:
+  build:
+    name: Build iOS
+    runs-on: macos-latest # 必须使用 macOS 环境
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'pnpm'
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Enable corepack (pnpm)
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.15.9 --activate
+
+      - name: Show pnpm version
+        run: pnpm -v
+
+      - name: Setup Java (for Android/Expo usually, safe to have)
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Dependencies
+        working-directory: frontend
+        run: pnpm install -w --frozen-lockfile
+
+      - name: Set build env
+        env:
+          EXPO_PUBLIC_API_BASE_URL: ${{ secrets.EXPO_PUBLIC_API_BASE_URL }}
+        run: echo "EXPO_PUBLIC_API_BASE_URL=${EXPO_PUBLIC_API_BASE_URL:-https://api.maredevi.fun}" >> $GITHUB_ENV
+
+      - name: Expo Prebuild
+        working-directory: frontend/apps/mobile
+        run: pnpm exec expo prebuild --platform ios --non-interactive
+        # 这一步会将 Expo 项目生成原生的 ios 目录
+
+      - name: Detect workspace and scheme
+        working-directory: frontend/apps/mobile/ios
+        run: |
+          set -euo pipefail
+
+          # 选择 workspace：优先自定义；否则选择首个非 project.xcworkspace 的 workspace
+          WORKSPACE_NAME=${XCODE_WORKSPACE:-$(find . -maxdepth 2 -name "*.xcworkspace" ! -path "*/project.xcworkspace" | head -n 1)}
+          if [ -z "$WORKSPACE_NAME" ]; then
+            WORKSPACE_NAME=$(find . -name "*.xcworkspace" | head -n 1)
+          fi
+
+          if [ -z "$WORKSPACE_NAME" ]; then
+            echo "No .xcworkspace found under ios/. Please set XCODE_WORKSPACE." >&2
+            exit 1
+          fi
+
+          SCHEMES_JSON=$(xcodebuild -list -json -workspace "$WORKSPACE_NAME")
+          echo "Available schemes:"; echo "$SCHEMES_JSON" | jq -r '.workspace.schemes[]'
+
+          # 选择 scheme：优先自定义；否则排除 EASClient 和测试相关 scheme
+          if [ -z "${XCODE_SCHEME:-}" ]; then
+            SCHEME_NAME=$(echo "$SCHEMES_JSON" | jq -r '[.workspace.schemes[] | select((.|test("^EASClient$")|not) and (.|test("Tests$|Test$|UITests$")|not))][0] // empty')
+            if [ -z "$SCHEME_NAME" ]; then
+              echo "No non-EASClient/non-Test scheme found. Please set XCODE_SCHEME explicitly." >&2
+              exit 1
+            fi
+          else
+            SCHEME_NAME="$XCODE_SCHEME"
+          fi
+
+          echo "WORKSPACE_NAME=$WORKSPACE_NAME" >> "$GITHUB_ENV"
+          echo "SCHEME_NAME=$SCHEME_NAME" >> "$GITHUB_ENV"
+
+          echo "Selected Workspace: $WORKSPACE_NAME"
+          echo "Selected Scheme: $SCHEME_NAME"
+
+      - name: Build Unsigned Archive
+        working-directory: frontend/apps/mobile/ios
+        run: |
+          set -euo pipefail
+
+          echo "Using Workspace: ${WORKSPACE_NAME:-}" "| Scheme: ${SCHEME_NAME:-}"
+          if [ -z "${WORKSPACE_NAME:-}" ] || [ -z "${SCHEME_NAME:-}" ]; then
+            echo "Workspace/Scheme not detected. Ensure the previous step ran or set XCODE_WORKSPACE/XCODE_SCHEME." >&2
+            exit 1
+          fi
+
+          # 执行 xcodebuild
+          # CODE_SIGNING_ALLOWED=NO: 关键参数，禁止签名
+          # CODE_SIGNING_REQUIRED=NO: 关键参数，不强制要求签名
+          xcodebuild archive \
+            -workspace "$WORKSPACE_NAME" \
+            -scheme "$SCHEME_NAME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath "build/$SCHEME_NAME.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            AD_HOC_CODE_SIGNING_ALLOWED=NO
+
+          if [ ! -d "build/$SCHEME_NAME.xcarchive/Products/Applications" ]; then
+            echo "Archive not found at build/$SCHEME_NAME.xcarchive/Products/Applications" >&2
+            echo "Contents of build/:"; ls -R build || true
+            exit 1
+          fi
+
+      - name: Export IPA
+        working-directory: frontend/apps/mobile/ios
+        run: |
+          set -euo pipefail
+
+          if [ -z "${WORKSPACE_NAME:-}" ] || [ -z "${SCHEME_NAME:-}" ]; then
+            echo "Workspace/Scheme not detected. Ensure the detect step ran or set XCODE_WORKSPACE/XCODE_SCHEME." >&2
+            exit 1
+          fi
+
+          # 定义 .app 的路径
+          ARCHIVE_ROOT="build/$SCHEME_NAME.xcarchive/Products/Applications"
+          if [ ! -d "$ARCHIVE_ROOT" ]; then
+            echo "No archive directory at $ARCHIVE_ROOT" >&2
+            echo "Contents of build/:"; ls -R build || true
+            exit 1
+          fi
+
+          APP_PATH=$(find "$ARCHIVE_ROOT" -maxdepth 1 -name "*.app" | head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            echo "No .app found under build/$SCHEME_NAME.xcarchive/Products/Applications" >&2
+            ls -R "build/$SCHEME_NAME.xcarchive/Products" || true
+            exit 1
+          fi
+
+          # 创建 Payload 文件夹 (IPA 的标准结构)
+          mkdir -p Payload
+
+          # 复制 .app 到 Payload
+          cp -r "$APP_PATH" Payload/
+
+          # 压缩成 .ipa
+          zip -r "$SCHEME_NAME-unsigned.ipa" Payload
+
+          echo "IPA created at: ios/$SCHEME_NAME-unsigned.ipa"
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-unsigned-ipa
+          path: frontend/apps/mobile/ios/*.ipa
+          retention-days: 7
