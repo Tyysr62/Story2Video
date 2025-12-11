@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Platform, KeyboardAvoidingView, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Box,
@@ -115,80 +116,87 @@ export default function CreateScreen() {
   return (
     <Box flex={1} bg={pageBg}>
       <SafeAreaView style={{ flex: 1 }}>
-        <Box flex={1} p="$4">
-          <VStack space="xl">
-            <VStack space="xs">
-              <Heading size="2xl">创建新故事</Heading>
-              <Text size="sm" color="$textLight500" _dark={{ color: "$textDark300" }}>
-                在下方输入你的故事信息以生成分镜。
-              </Text>
-            </VStack>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
+          <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+            <Box flex={1} p="$4">
+              <VStack space="xl">
+                <VStack space="xs">
+                  <Heading size="2xl">创建新故事</Heading>
+                  <Text size="sm" color="$textLight500" _dark={{ color: "$textDark300" }}>
+                    在下方输入你的故事信息以生成分镜。
+                  </Text>
+                </VStack>
 
-            <VStack space="md">
-              <Text fontWeight="$bold">故事文本</Text>
-              <Textarea size="xl" h={150}>
-                <TextareaInput
-                  placeholder="从前有座山..."
-                  value={storyText}
-                  onChangeText={setStoryText}
-                />
-              </Textarea>
-            </VStack>
+                <VStack space="md">
+                  <Text fontWeight="$bold">故事文本</Text>
+                  <Textarea size="xl" h={150}>
+                    <TextareaInput
+                      placeholder="从前有座山..."
+                      value={storyText}
+                      onChangeText={setStoryText}
+                    />
+                  </Textarea>
+                </VStack>
 
-            <VStack space="md">
-              <Text fontWeight="$bold">风格</Text>
-              <Select
-                selectedValue={style}
-                initialLabel={getStoryStyleLabel(style)}
-                onValueChange={(v) => setStyle(v as StoryStyle)}
-              >
-                <SelectTrigger variant="outline" size="md">
-                  <SelectInput placeholder={getStoryStylePlaceholder()} />
-                  <SelectIcon mr="$3" as={ChevronDownIcon} />
-                </SelectTrigger>
-                <SelectPortal>
-                  <SelectBackdrop />
-                  <SelectContent>
-                    <SelectDragIndicatorWrapper>
-                      <SelectDragIndicator />
-                    </SelectDragIndicatorWrapper>
-                    {getStoryStyleOptions().map((option) => (
-                      <SelectItem
-                        key={option.value}
-                        label={option.label}
-                        value={option.value}
-                      />
-                    ))}
-                  </SelectContent>
-                </SelectPortal>
-              </Select>
-            </VStack>
+                <VStack space="md">
+                  <Text fontWeight="$bold">风格</Text>
+                  <Select
+                    selectedValue={style}
+                    initialLabel={getStoryStyleLabel(style)}
+                    onValueChange={(v) => setStyle(v as StoryStyle)}
+                  >
+                    <SelectTrigger variant="outline" size="md">
+                      <SelectInput placeholder={getStoryStylePlaceholder()} />
+                      <SelectIcon mr="$3" as={ChevronDownIcon} />
+                    </SelectTrigger>
+                    <SelectPortal>
+                      <SelectBackdrop />
+                      <SelectContent>
+                        <SelectDragIndicatorWrapper>
+                          <SelectDragIndicator />
+                        </SelectDragIndicatorWrapper>
+                        {getStoryStyleOptions().map((option) => (
+                          <SelectItem
+                            key={option.value}
+                            label={option.label}
+                            value={option.value}
+                          />
+                        ))}
+                      </SelectContent>
+                    </SelectPortal>
+                  </Select>
+                </VStack>
 
-            <Button
-              size="xl"
-              variant="solid"
-              action="primary"
-              isDisabled={isLoading}
-              onPress={handleGenerate}
-              mt="$4"
-            >
-              {isLoading && <Spinner color="$white" mr="$2" />}
-              <ButtonText>
-                {isLoading ? "提交中..." : "生成故事"}
-              </ButtonText>
-            </Button>
+                <Button
+                  size="xl"
+                  variant="solid"
+                  action="primary"
+                  isDisabled={isLoading}
+                  onPress={handleGenerate}
+                  mt="$4"
+                >
+                  {isLoading && <Spinner color="$white" mr="$2" />}
+                  <ButtonText>
+                    {isLoading ? "提交中..." : "生成故事"}
+                  </ButtonText>
+                </Button>
 
-            <Text
-              size="sm"
-              color="$textLight400"
-              _dark={{ color: "$textDark300" }}
-              textAlign="center"
-              mt="$2"
-            >
-              提交后可在「任务列表」中查看生成进度
-            </Text>
-          </VStack>
-        </Box>
+                <Text
+                  size="sm"
+                  color="$textLight400"
+                  _dark={{ color: "$textDark300" }}
+                  textAlign="center"
+                  mt="$2"
+                >
+                  提交后可在「任务列表」中查看生成进度
+                </Text>
+              </VStack>
+            </Box>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </Box>
   );

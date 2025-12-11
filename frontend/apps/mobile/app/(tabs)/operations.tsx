@@ -24,6 +24,12 @@ export default function OperationsScreen() {
   const iconColor = isDark ? "#e5e7eb" : "#4b5563";
   const pageBg = isDark ? "$backgroundDark950" : "$backgroundLight0";
   const refreshBg = isDark ? "$backgroundDark800" : "$backgroundLight100";
+  const cardBg = isDark ? "$backgroundDark900" : "$white";
+  const cardBorderDefault = isDark ? "$borderDark700" : "$borderLight200";
+  const cardBorderActive = isDark ? "$primary500" : "$primary200";
+  const payloadBg = isDark ? "$backgroundDark800" : "$backgroundLight50";
+  const iconBoxBg = isDark ? "$backgroundDark800" : "$backgroundLight100";
+  const errorBg = isDark ? "$error900" : "$error50";
   const [filter, setFilter] = useState<OperationStatus | "all">("all");
 
   // 使用轮询 hook 获取真实数据
@@ -204,9 +210,9 @@ export default function OperationsScreen() {
                   disabled={!isClickable}
                 >
                   <Box
-                    bg="$white"
+                    bg={cardBg}
                     borderRadius="$lg"
-                    borderColor={isClickable ? "$primary200" : "$borderLight200"}
+                    borderColor={isClickable ? cardBorderActive : cardBorderDefault}
                     borderWidth={1}
                     p="$3"
                     shadowColor="$black"
@@ -214,10 +220,6 @@ export default function OperationsScreen() {
                     shadowOpacity={0.05}
                     shadowRadius={2}
                     elevation={1}
-                    _dark={{
-                      bg: "$backgroundDark900",
-                      borderColor: isClickable ? "$primary500" : "$borderDark700",
-                    }}
                   >
                   <VStack space="sm">
                     {/* Header Row */}
@@ -226,11 +228,10 @@ export default function OperationsScreen() {
                         <Box
                           w="$8"
                           h="$8"
-                          bg="$backgroundLight100"
+                          bg={iconBoxBg}
                           borderRadius="$md"
                           alignItems="center"
                           justifyContent="center"
-                          _dark={{ bg: "$backgroundDark800" }}
                         >
                           <FontAwesome name={typeIcon} size={16} color={iconColor} />
                         </Box>
@@ -263,10 +264,9 @@ export default function OperationsScreen() {
                     {/* Payload Info */}
                     {op.payload && (
                       <Box
-                        bg="$backgroundLight50"
+                        bg={payloadBg}
                         p="$2"
                         borderRadius="$sm"
-                        _dark={{ bg: "$backgroundDark800" }}
                       >
                         <Text
                           size="xs"
@@ -282,10 +282,9 @@ export default function OperationsScreen() {
                     {/* Error Message */}
                     {op.status === "failed" && op.error_msg && (
                       <Box
-                        bg="$error50"
+                        bg={errorBg}
                         p="$2"
                         borderRadius="$sm"
-                        _dark={{ bg: "$error900" }}
                       >
                         <Text
                           size="xs"
